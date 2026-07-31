@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+node_modules/
+licenses.json
+
+# Katta bozor ma'lumotlari
+quant/data/*.csv
+quant/data/*.zip
