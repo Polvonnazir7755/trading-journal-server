@@ -1,0 +1,419 @@
+//@version=6
+// ==============================================================
+//  PHOTON MTF — ALL IN ONE
+//  HTF Objective -> MTF POIs -> LTF Execution
+//
+//  Bitta fayl: vizual (OB/FVG/LQ/P&D/Dashboard) + BACKTEST.
+//  Repaint YO'Q — barcha HTF ma'lumot faqat YOPILGAN shamdan.
+//
+//  REJIM:
+//    "Faqat indikator" -> savdo ochilmaydi, faqat grafik
+//    "Backtest"        -> Strategy Tester raqamlarni ko'rsatadi
+// ==============================================================
+strategy("Photon MTF — All in One", overlay = true,
+     initial_capital         = 10000,
+     default_qty_type        = strategy.percent_of_equity,
+     default_qty_value       = 100,
+     commission_type         = strategy.commission.cash_per_order,
+     commission_value        = 3.5,
+     slippage                = 2,
+     calc_on_every_tick      = false,
+     process_orders_on_close = true,
+     max_boxes_count         = 500,
+     max_lines_count         = 500,
+     max_labels_count        = 500,
+     margin_long = 0, margin_short = 0)
+
+// -------------------------------------------------------------- MODE
+gMD  = "① Rejim"
+mode = input.string("Backtest", "Rejim", options = ["Backtest", "Faqat indikator"],
+     group = gMD, tooltip = "Faqat indikator = savdo ochilmaydi, grafik tayyorlanadi")
+tradingOn = mode == "Backtest"
+
+// ------------------------------------------------------------- INPUTS
+gTF   = "② Taymfreymlar"
+htf_s = input.timeframe("240", "HTF (narrativ)", group = gTF)
+mtf_s = input.timeframe("60",  "MTF (POI)",      group = gTF)
+ltf_s = input.timeframe("15",  "LTF (ijro)",     group = gTF,
+     tooltip = "Faqat dashboardda ko'rsatiladi; ijro joriy grafikda")
+
+gST   = "③ Struktura"
+sw_l  = input.int(2, "Swing chap", minval = 1, maxval = 5, group = gST)
+sw_r  = input.int(2, "Swing o'ng", minval = 1, maxval = 5, group = gST,
+     tooltip = "Kattaroq = kamroq lekin ishonchliroq swing")
+use_close_bos = input.bool(true, "BOS yopilish bilan tasdiqlansin", group = gST)
+
+gZN   = "④ Zonalar (vizual)"
+show_ob   = input.bool(true, "Order Block",         group = gZN)
+show_fvg  = input.bool(true, "FVG / Imbalance",     group = gZN)
+show_lq   = input.bool(true, "Likvidlik (EQH/EQL)", group = gZN)
+show_pd   = input.bool(true, "Premium / Discount",  group = gZN)
+max_zones = input.int(6, "Har turdan maks zona", minval = 1, maxval = 20, group = gZN)
+eq_tol_atr= input.float(0.10, "EQH/EQL tolerans (ATR)", minval = 0.01, step = 0.01, group = gZN)
+
+gEN   = "⑤ Kirish filtri"
+usePhaseA = input.bool(true,  "A faza (Pro Swing + Pro Internal)",     group = gEN)
+usePhaseB = input.bool(true,  "B faza (Pro Swing + Counter Internal)", group = gEN)
+usePhaseC = input.bool(true,  "C faza (Counter Swing + Pro Internal)", group = gEN)
+usePhaseD = input.bool(false, "D faza (AVOID)",                        group = gEN)
+useLC1    = input.bool(true,  "LC-1 (sweep, zonasiz)",  group = gEN)
+useLC2A   = input.bool(true,  "LC-2A (sweep zona ichida)", group = gEN)
+needPD    = input.bool(false, "Faqat discount(long)/premium(short)", group = gEN)
+
+gRK   = "⑥ Risk"
+risk_pct   = input.float(0.5, "Risk %",  minval = 0.1, step = 0.1, group = gRK)
+rr_target  = input.float(3.0, "TP (R)",  minval = 1.0, step = 0.5, group = gRK)
+slBufATR   = input.float(0.2, "SL bufer (ATR)", minval = 0.0, step = 0.1, group = gRK)
+maxLossDay = input.int(3, "Kunlik maks zarar", minval = 1, group = gRK)
+spread_px  = input.float(0.3, "Spred (pip) — real RR uchun", minval = 0.0, step = 0.1, group = gRK)
+
+gTM   = "⑦ Vaqt"
+useSess = input.bool(true, "Sessiya filtri", group = gTM)
+sessStr = input.session("0700-1000,1200-1600", "Sessiyalar", group = gTM)
+ldn_s   = input.session("0700-1000", "London (fon)",  group = gTM)
+ny_s    = input.session("1200-1600", "New York (fon)", group = gTM)
+
+gUI   = "⑧ Ko'rinish"
+show_dash = input.bool(true, "Dashboard", group = gUI)
+dash_pos  = input.string("top_right", "Joyi",
+     options = ["top_right","top_left","bottom_right","bottom_left"], group = gUI)
+show_sess_bg = input.bool(true, "Sessiya foni", group = gUI)
+
+// -------------------------------------------------------------- TYPES
+type Zone
+    box    b
+    float  top
+    float  bot
+    bool   bull
+    bool   mitigated
+
+type St
+    float  sh = na
+    float  sl = na
+    string bias = "RANGE"
+    string lastEv = ""
+    int    lastEvBar = na
+
+// ------------------------------------------------------------- HELPERS
+// FAQAT YOPILGAN sham — repaint himoyasi
+f_htf(simple string tf, series float src) =>
+    request.security(syminfo.tickerid, tf, src[1], lookahead = barmerge.lookahead_off)
+
+// --------------------------------------------------------- HTF/MTF DATA
+htf_h = f_htf(htf_s, high)
+htf_l = f_htf(htf_s, low)
+htf_c = f_htf(htf_s, close)
+mtf_h = f_htf(mtf_s, high)
+mtf_l = f_htf(mtf_s, low)
+mtf_c = f_htf(mtf_s, close)
+ltf_h = f_htf(ltf_s, high)
+ltf_l = f_htf(ltf_s, low)
+ltf_c = f_htf(ltf_s, close)
+atr   = ta.atr(14)
+
+// ----------------------------------------------------------- STRUCTURE
+var St sH = St.new()
+var St sM = St.new()
+var St sL = St.new()
+
+f_upd(St s, float ph, float pl, float pxu, float pxd) =>
+    string ev = ""
+    if not na(ph)
+        s.sh := ph
+    if not na(pl)
+        s.sl := pl
+    if not na(s.sh) and pxu > s.sh
+        ev := s.bias == "BEAR" ? "CHoCH↑" : "BOS↑"
+        s.bias := "BULL"
+        s.lastEv := ev
+        s.lastEvBar := bar_index
+        s.sh := na
+    if not na(s.sl) and pxd < s.sl
+        ev := s.bias == "BULL" ? "CHoCH↓" : "BOS↓"
+        s.bias := "BEAR"
+        s.lastEv := ev
+        s.lastEvBar := bar_index
+        s.sl := na
+    ev
+
+ph_h = ta.pivothigh(htf_h, sw_l, sw_r)
+pl_h = ta.pivotlow(htf_l,  sw_l, sw_r)
+ph_m = ta.pivothigh(mtf_h, sw_l, sw_r)
+pl_m = ta.pivotlow(mtf_l,  sw_l, sw_r)
+ph_c = ta.pivothigh(high,  sw_l, sw_r)
+pl_c = ta.pivotlow(low,    sw_l, sw_r)
+
+ev_h = f_upd(sH, ph_h, pl_h, use_close_bos ? htf_c : htf_h, use_close_bos ? htf_c : htf_l)
+ev_m = f_upd(sM, ph_m, pl_m, use_close_bos ? mtf_c : mtf_h, use_close_bos ? mtf_c : mtf_l)
+ev_l = f_upd(sL, ph_c, pl_c, use_close_bos ? close : high,  use_close_bos ? close : low)
+
+// --------------------------------------------------------- MTF PHASE
+f_phase(string h, string m, string l) =>
+    if h == "RANGE" or m == "RANGE"
+        "RANGE"
+    else
+        pS = h == m
+        pI = m == l
+        pS and pI ? "A" : pS and not pI ? "B" : not pS and pI ? "C" : "D"
+
+phase = f_phase(sH.bias, sM.bias, sL.bias)
+phaseDesc = phase == "A" ? "Pro Swing + Pro Internal" :
+     phase == "B" ? "Pro Swing + Counter Internal" :
+     phase == "C" ? "Counter Swing + Pro Internal" :
+     phase == "D" ? "AVOID — Counter + Counter" : "Range — chetda turing"
+phaseOK = (phase == "A" and usePhaseA) or (phase == "B" and usePhaseB) or
+     (phase == "C" and usePhaseC) or (phase == "D" and usePhaseD)
+
+// ------------------------------------------------------------- ZONES
+var array<Zone> zOB  = array.new<Zone>()
+var array<Zone> zFVG = array.new<Zone>()
+
+f_pushZone(array<Zone> arr, float t, float b, bool bull, string kind, color bg, color br) =>
+    if array.size(arr) >= max_zones
+        old = array.shift(arr)
+        box.delete(old.b)
+    bx = box.new(bar_index, t, bar_index + 20, b, bgcolor = bg,
+         border_color = br, border_width = 1, extend = extend.right,
+         text = kind, text_size = size.tiny, text_color = color.new(color.white, 45),
+         text_halign = text.align_left, text_valign = bull ? text.align_bottom : text.align_top)
+    array.push(arr, Zone.new(bx, t, b, bull, false))
+
+// FVG — 3 shamli imbalance
+if show_fvg and barstate.isconfirmed
+    if low > high[2] and (low - high[2]) > atr * 0.1
+        f_pushZone(zFVG, low, high[2], true, "FVG",
+             color.new(color.teal, 88), color.new(color.teal, 55))
+    if low[2] > high and (low[2] - high) > atr * 0.1
+        f_pushZone(zFVG, low[2], high, false, "FVG",
+             color.new(color.maroon, 88), color.new(color.maroon, 55))
+
+// Order Block — BOS/CHoCH dan oldingi oxirgi qarama-qarshi sham
+f_findOB(bool bullEvent) =>
+    float t = na
+    float b = na
+    for i = 1 to 12
+        bool opp = bullEvent ? (close[i] < open[i]) : (close[i] > open[i])
+        if opp
+            t := high[i]
+            b := low[i]
+            break
+    [t, b]
+
+if show_ob and ev_l != "" and barstate.isconfirmed
+    bool bullEv = str.contains(ev_l, "↑")
+    [obT, obB] = f_findOB(bullEv)
+    if not na(obT)
+        f_pushZone(zOB, obT, obB, bullEv, "OB",
+             bullEv ? color.new(color.green, 85) : color.new(color.red, 85),
+             bullEv ? color.new(color.green, 45) : color.new(color.red, 45))
+
+f_markMitigation(array<Zone> arr) =>
+    if array.size(arr) > 0
+        for i = 0 to array.size(arr) - 1
+            z = array.get(arr, i)
+            if not z.mitigated and low <= z.top and high >= z.bot
+                z.mitigated := true
+                box.set_border_style(z.b, line.style_solid)
+                box.set_border_width(z.b, 2)
+
+f_markMitigation(zOB)
+f_markMitigation(zFVG)
+
+f_inAnyZone(float px) =>
+    bool r = false
+    if array.size(zOB) > 0
+        for i = 0 to array.size(zOB) - 1
+            z = array.get(zOB, i)
+            if px <= z.top and px >= z.bot
+                r := true
+                break
+    if not r and array.size(zFVG) > 0
+        for i = 0 to array.size(zFVG) - 1
+            z = array.get(zFVG, i)
+            if px <= z.top and px >= z.bot
+                r := true
+                break
+    r
+
+// ---------------------------------------------------------- LIQUIDITY
+var array<line> lqLines = array.new<line>()
+var float lastPH = na
+var float lastPL = na
+
+if show_lq and not na(ph_c)
+    if not na(lastPH) and math.abs(ph_c - lastPH) <= atr * eq_tol_atr
+        ln = line.new(bar_index - sw_r * 3, ph_c, bar_index + 10, ph_c,
+             color = color.new(color.orange, 30), style = line.style_dotted, width = 2)
+        array.push(lqLines, ln)
+        if array.size(lqLines) > 12
+            line.delete(array.shift(lqLines))
+        label.new(bar_index + 10, ph_c, "EQH", style = label.style_label_left,
+             color = color.new(color.orange, 70), textcolor = color.white, size = size.tiny)
+lastPH := nz(ph_c, lastPH)
+
+if show_lq and not na(pl_c)
+    if not na(lastPL) and math.abs(pl_c - lastPL) <= atr * eq_tol_atr
+        ln = line.new(bar_index - sw_r * 3, pl_c, bar_index + 10, pl_c,
+             color = color.new(color.blue, 30), style = line.style_dotted, width = 2)
+        array.push(lqLines, ln)
+        if array.size(lqLines) > 12
+            line.delete(array.shift(lqLines))
+        label.new(bar_index + 10, pl_c, "EQL", style = label.style_label_left,
+             color = color.new(color.blue, 70), textcolor = color.white, size = size.tiny)
+lastPL := nz(pl_c, lastPL)
+
+// ------------------------------------------------------ PREMIUM/DISCOUNT
+var float mSH = na
+var float mSL = na
+mSH := nz(ph_m, mSH)
+mSL := nz(pl_m, mSL)
+
+pdPos = (not na(mSH) and not na(mSL) and (mSH - mSL) > 0) ? (close - mSL) / (mSH - mSL) : na
+pdZone = na(pdPos) ? "—" :
+     pdPos > 0.79 ? "EXT PREM" : pdPos > 0.5 ? "PREMIUM" :
+     pdPos < 0.21 ? "EXT DISC" : "DISCOUNT"
+inDiscount = not na(pdPos) and pdPos < 0.5
+inPremium  = not na(pdPos) and pdPos > 0.5
+
+var box pdPrem = na
+var box pdDisc = na
+var line pdEq  = na
+if show_pd and not na(mSH) and not na(mSL) and barstate.islast
+    box.delete(pdPrem), box.delete(pdDisc), line.delete(pdEq)
+    mid = (mSH + mSL) / 2
+    pdPrem := box.new(bar_index - 60, mSH, bar_index + 15, mid,
+         bgcolor = color.new(color.red, 94), border_color = color.new(color.red, 75))
+    pdDisc := box.new(bar_index - 60, mid, bar_index + 15, mSL,
+         bgcolor = color.new(color.green, 94), border_color = color.new(color.green, 75))
+    pdEq := line.new(bar_index - 60, mid, bar_index + 15, mid,
+         color = color.new(color.gray, 30), style = line.style_dashed)
+
+// ------------------------------------------------------------ SESSIONS
+inSess = not useSess or not na(time(timeframe.period, sessStr))
+inLDN  = not na(time(timeframe.period, ldn_s))
+inNY   = not na(time(timeframe.period, ny_s))
+bgcolor(show_sess_bg ? (inLDN ? color.new(color.blue, 95) :
+     inNY ? color.new(color.purple, 95) : na) : na)
+
+// ------------------------------------------------------ DAILY LOSS GUARD
+var int lossToday = 0
+var int lastDay = na
+if dayofmonth != lastDay
+    lossToday := 0
+    lastDay := dayofmonth
+if strategy.closedtrades > nz(strategy.closedtrades[1])
+    if strategy.closedtrades.profit(strategy.closedtrades - 1) < 0
+        lossToday += 1
+guardOK = lossToday < maxLossDay
+
+// -------------------------------------------------------- LC SIGNALS
+sweepUp   = not na(lastPH) and high > lastPH and close < lastPH
+sweepDown = not na(lastPL) and low  < lastPL and close > lastPL
+
+lcTypeUp   = f_inAnyZone(high) ? "LC-2A" : "LC-1"
+lcTypeDown = f_inAnyZone(low)  ? "LC-2A" : "LC-1"
+lcOKUp     = (lcTypeUp   == "LC-1" and useLC1) or (lcTypeUp   == "LC-2A" and useLC2A)
+lcOKDown   = (lcTypeDown == "LC-1" and useLC1) or (lcTypeDown == "LC-2A" and useLC2A)
+
+var string lcLast = ""
+var int    lcBar  = na
+if barstate.isconfirmed and (sweepUp or sweepDown)
+    lcLast := sweepUp ? lcTypeUp : lcTypeDown
+    lcBar  := bar_index
+    label.new(bar_index, sweepUp ? high : low, lcLast + (sweepUp ? " ↓" : " ↑"),
+         style = sweepUp ? label.style_label_down : label.style_label_up,
+         color = color.new(sweepUp ? color.red : color.green, 25),
+         textcolor = color.white, size = size.tiny)
+
+// ------------------------------------------------------------- ENTRY
+canTrade = tradingOn and phaseOK and inSess and guardOK and strategy.position_size == 0
+
+longCond  = canTrade and sweepDown and lcOKDown and sM.bias == "BULL" and
+     (not needPD or inDiscount)
+shortCond = canTrade and sweepUp and lcOKUp and sM.bias == "BEAR" and
+     (not needPD or inPremium)
+
+if longCond
+    slPrice = low - atr * slBufATR
+    risk = close - slPrice
+    if risk > 0
+        tpPrice = close + risk * rr_target
+        qty = (strategy.equity * risk_pct / 100) / risk
+        strategy.entry("L", strategy.long, qty = qty, comment = phase + "/" + lcTypeDown)
+        strategy.exit("Lx", "L", stop = slPrice, limit = tpPrice)
+
+if shortCond
+    slPrice = high + atr * slBufATR
+    risk = slPrice - close
+    if risk > 0
+        tpPrice = close - risk * rr_target
+        qty = (strategy.equity * risk_pct / 100) / risk
+        strategy.entry("S", strategy.short, qty = qty, comment = phase + "/" + lcTypeUp)
+        strategy.exit("Sx", "S", stop = slPrice, limit = tpPrice)
+
+plotshape(longCond,  "LONG",  shape.triangleup,   location.belowbar,
+     color.new(color.green, 0), size = size.tiny)
+plotshape(shortCond, "SHORT", shape.triangledown, location.abovebar,
+     color.new(color.red, 0), size = size.tiny)
+
+// --------------------------------------------------------- RISK CALC
+pipSize = syminfo.mintick * (syminfo.type == "forex" ? 10 : 1)
+slDist  = atr * (1.0 + slBufATR)
+slPips  = slDist / pipSize
+riskUsd = strategy.equity * risk_pct / 100
+realRR  = slPips > 0 ? (slPips * rr_target - spread_px) / (slPips + spread_px) : na
+
+// --------------------------------------------------------- DASHBOARD
+var table dash = na
+
+cBull = color.new(color.green, 60)
+cBear = color.new(color.red, 60)
+cNeut = color.new(color.gray, 60)
+
+f_biasCol(string b) => b == "BULL" ? cBull : b == "BEAR" ? cBear : cNeut
+
+f_row(table t, int r, string k, string v, color bg) =>
+    table.cell(t, 0, r, k, text_color = color.new(color.white, 20),
+         text_size = size.small, bgcolor = color.new(color.black, 20),
+         text_halign = text.align_left)
+    table.cell(t, 1, r, v, text_color = color.white,
+         text_size = size.small, bgcolor = bg, text_halign = text.align_right)
+
+if show_dash and barstate.islast
+    table.delete(dash)
+    pos = dash_pos == "top_right" ? position.top_right :
+         dash_pos == "top_left" ? position.top_left :
+         dash_pos == "bottom_right" ? position.bottom_right : position.bottom_left
+    dash := table.new(pos, 2, 12, border_width = 1,
+         frame_color = color.new(color.gray, 50), frame_width = 1)
+
+    table.cell(dash, 0, 0, "PHOTON MTF", text_color = color.white,
+         text_size = size.normal, bgcolor = color.new(color.blue, 40))
+    table.cell(dash, 1, 0, syminfo.ticker, text_color = color.white,
+         text_size = size.normal, bgcolor = color.new(color.blue, 40))
+
+    f_row(dash, 1,  "HTF " + htf_s, sH.bias + " " + sH.lastEv, f_biasCol(sH.bias))
+    f_row(dash, 2,  "MTF " + mtf_s, sM.bias + " " + sM.lastEv, f_biasCol(sM.bias))
+    f_row(dash, 3,  "LTF " + timeframe.period, sL.bias + " " + sL.lastEv, f_biasCol(sL.bias))
+    f_row(dash, 4,  "MTF Faza", phase, phase == "A" ? cBull : phase == "D" ? cBear : cNeut)
+    f_row(dash, 5,  "Izoh", phaseDesc, cNeut)
+    f_row(dash, 6,  "P&D", pdZone + (na(pdPos) ? "" : "  " + str.tostring(pdPos * 100, "#") + "%"),
+         inDiscount ? cBull : inPremium ? cBear : cNeut)
+    f_row(dash, 7,  "Oxirgi LC", na(lcBar) ? "—" :
+         lcLast + " (" + str.tostring(bar_index - lcBar) + " bar)", cNeut)
+    f_row(dash, 8,  "Sessiya", inLDN ? "LONDON" : inNY ? "NEW YORK" : "—",
+         inLDN or inNY ? color.new(color.blue, 60) : cNeut)
+    f_row(dash, 9,  "SL / Risk", str.tostring(slPips, "#.#") + "p / $" +
+         str.tostring(riskUsd, "#.##"), cNeut)
+    f_row(dash, 10, "Real RR", na(realRR) ? "—" : "1:" + str.tostring(realRR, "#.##"),
+         na(realRR) ? cNeut : realRR >= rr_target * 0.9 ? cBull : cBear)
+    f_row(dash, 11, "Rejim", mode + (tradingOn ? "  (bugun -" +
+         str.tostring(lossToday) + ")" : ""),
+         tradingOn ? color.new(color.blue, 60) : cNeut)
+
+// ------------------------------------------------------------ ALERTS
+alertcondition(ev_h != "", "HTF struktura", "Photon: HTF BOS/CHoCH")
+alertcondition(ev_m != "", "MTF struktura", "Photon: MTF BOS/CHoCH")
+alertcondition(sweepUp or sweepDown, "LC sweep", "Photon: likvidlik olindi")
+alertcondition(longCond,  "LONG",  "Photon: LONG signal")
+alertcondition(shortCond, "SHORT", "Photon: SHORT signal")
