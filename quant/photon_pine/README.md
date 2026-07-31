@@ -1,147 +1,136 @@
-# Photon MTF — All in One
+# Photon MTF v2
 
-**Bitta fayl:** `PHOTON_ALL_IN_ONE.pine`
-
-Ichida ham vizual (OB / FVG / likvidlik / P&D / dashboard),
-ham **backtest** (win rate, profit factor, drawdown).
+**Fayl:** `PHOTON_V2.pine`
 
 ---
 
-## O'rnatish
+## v1 dan farqi — 5 ta muhim o'zgarish
 
-1. TradingView → pastdagi **Pine Editor**
-2. `Open` → `New strategy`
-3. Kodni to'liq nusxalab qo'ying (eski kodni o'chiring)
-4. `Save` → nom bering → `Add to chart`
+### 1. SWING va INTERNAL ajratildi ⭐
 
-Xato chiqsa — matnini menga yuboring.
+Bu eng muhim tuzatish. v1 da faza noto'g'ri hisoblanardi.
 
----
+Photon'da swing va internal — bu **bir xil taymfreymda, turli fraktal
+o'lchamida** aniqlanadigan struktura:
 
-## Ikki rejim
+```
+MTF SWING    = katta fraktal (default 5)  -> asosiy tuzilma
+MTF INTERNAL = kichik fraktal (default 2) -> ichki harakat
+```
 
-Sozlamalarning birinchi bo'limida:
+Faza endi to'g'ri:
+```
+Pro Swing    = MTF swing bias == HTF bias
+Pro Internal = MTF internal bias == MTF swing bias
 
-| Rejim | Nima qiladi |
+A = Pro Swing + Pro Internal
+B = Pro Swing + Counter Internal
+C = Counter Swing + Pro Internal
+D = Counter + Counter (AVOID)
+```
+
+### 2. Signal manbai kengaytirildi
+
+v1 da faqat LTF sweep bor edi → 5 ta savdo chiqdi.
+
+Endi 4 ta manba (④ bo'limda yoqib/o'chiriladi):
+
+| Manba | Izoh |
 |---|---|
-| **Backtest** | Savdo ochadi → Strategy Tester raqamlarni ko'rsatadi |
-| **Faqat indikator** | Savdo ochmaydi, faqat grafikni tayyorlaydi |
+| LTF sweep | joriy TF likvidlik olish |
+| MTF sweep | MTF darajasida sweep |
+| POI tap | OB/FVG zonaga tegish |
+| LTF CHoCH | agressiv (default o'chiq) |
 
-Kundalik ishda "Faqat indikator", tekshirishda "Backtest".
+**Nega kerak:** hisoblab ko'rdim — A+B faza barcha holatlarning
+atigi **~22%** ini tashkil qiladi. 50 savdo uchun ~225 ta signal kerak.
+
+### 3. Entry / SL / TP grafikda
+
+- Pozitsiya ochiq bo'lganda 3 ta chiziq: ko'k (entry), qizil (SL), yashil (TP)
+- Kirish paytida yorliq: yo'nalish, faza, aniq narxlar
+
+### 4. Faza bo'yicha statistika ⭐
+
+Dashboard pastida:
+
+```
+FAZA STATISTIKASI     win/jami  WR
+A  (Pro+Pro)          12/28  43%
+B  (Pro+Counter)       8/22  36%
+C  (Counter+Pro)          —
+D  (AVOID)                —
+JAMI savdo            50  ✓
+```
+
+Rang: yashil = musbat PnL, qizil = manfiy.
+
+### 5. Default: faqat A + B
+
+C va D o'chirilgan. Siz so'raganingizdek.
 
 ---
 
-## Dashboard
+## Sozlash tartibi — 50 savdo yig'ish
 
-| Qator | Ma'nosi |
+**1-qadam: davrni kengaytiring**
+
+Strategy Tester → Properties → Backtest date range: **2022.01.01** dan
+
+**2-qadam: savdo sonini tekshiring**
+
+Dashboard "JAMI savdo" qatorida ko'rinadi. 50 dan kam bo'lsa:
+
+| Nima | Qanday |
 |---|---|
-| HTF / MTF / LTF | Har taymfreymda bias + oxirgi BOS/CHoCH |
-| **MTF Faza** | A / B / C / D — Photon jadvali |
-| Izoh | Faza tavsifi |
-| P&D | Premium / Discount + foiz |
-| Oxirgi LC | LC-1 yoki LC-2A, necha bar oldin |
-| Sessiya | London / New York |
-| SL / Risk | Taxminiy SL pip va risk summasi |
-| **Real RR** | Spred hisobga olingan RR |
-| Rejim | Joriy rejim + bugungi zararlar |
+| Signal manbalari | ④ da hammasini yoqing (CHoCH ham) |
+| Cooldown | 5 → 2 ga tushiring |
+| MTF | 60 → 30 |
+| SWING fraktal | 5 → 4 |
+| Sessiya | ⑦ o'chiq bo'lsin (default) |
 
-### Faza mantiqi
+**3-qadam: 50+ savdo bo'lgach**
 
-```
-A = HTF = MTF = LTF        Pro Swing + Pro Internal
-B = HTF = MTF, MTF != LTF  Pro Swing + Counter Internal
-C = HTF != MTF, MTF = LTF  Counter Swing + Pro Internal
-D = hech biri              AVOID (Photon: "avoid until profitable")
-```
+Endi faza statistikasini o'qing. A va B ni solishtiring.
 
 ---
 
-## Grafikdagi elementlar
+## SL rejimlari
 
-| Element | Ko'rinishi |
+⑥ bo'limda:
+
+| Rejim | Qayerga qo'yadi |
 |---|---|
-| **OB** | Yashil/qizil quti, "OB" yozuvi |
-| **FVG** | Teal/maroon quti |
-| **EQH / EQL** | Nuqtali chiziq + yorliq |
-| **P&D** | Yuqorida qizil (premium), pastda yashil (discount) |
-| **LC-1 / LC-2A** | Sweep nuqtasida yorliq |
-| **Sessiya** | Ko'k (LDN) / binafsha (NY) fon |
-
-**Zona chegarasi punktir** = hali teginilmagan (fresh)
-**Zona chegarasi qalin** = mitigatsiya bo'lgan
+| **Swing** | oxirgi swing low/high ortiga (default) |
+| ATR | ATR × koeffitsient |
+| Signal shami | joriy sham low/high |
 
 ---
 
-## Backtest sozlamalari
+## ⚠️ Ogohlantirish
 
-Ichiga qo'yilgan:
+Sozlamalarni "yaxshi natija" chiqquncha o'zgartirish — bu **overfitting**.
 
-```
-Komissiya    : $3.5 / order
-Slippage     : 2 tick
-Risk         : 0.5% har savdo
-TP           : 3R
-Kunlik limit : 3 zarar
-Sessiya      : 07-10 va 12-16
-```
+To'g'ri tartib:
+1. Avval **savdo sonini** 50+ ga yetkazing (statistika uchun)
+2. Keyin **hech narsani o'zgartirmasdan** natijani o'qing
+3. Faza A va B ni solishtiring
 
-### Filtrlar bilan tajriba
-
-| Filtr | Savol |
-|---|---|
-| A / B / C / D | Qaysi faza pul keltiradi? |
-| LC-1 / LC-2A | Qaysi entry model kuchli? |
-| "Faqat discount/premium" | P&D filtri yordam beradimi? |
-
-⚠️ Har tajriba — alohida gipoteza. Ko'p sinasangiz, bittasi tasodifan
-yaxshi chiqadi. `quant/KESIMLAR.md` dagi ro'yxatga amal qiling.
+Agar 20 ta sozlamani sinab, eng yaxshisini tanlasangiz — natija yolg'on
+bo'ladi. Jonli savdoda takrorlanmaydi.
 
 ---
 
-## Repaint himoyasi
+## Kutilgan natija
 
-```pine
-f_htf(simple string tf, series float src) =>
-    request.security(syminfo.tickerid, tf, src[1],
-         lookahead = barmerge.lookahead_off)
-                            ^^^ [1] = faqat YOPILGAN sham
-```
+Halol aytaman: **A fazada win rate yaxshi chiqishi shart emas.**
 
-**Tekshirish:** indikatorni qo'ying, bir kun ishlating, keyin F5 bosing.
-Signallar joyida qolishi kerak.
+Photon shunday da'vo qiladi, lekin bu **tekshirilmagan gipoteza** —
+aynan shuning uchun sinaymiz.
 
----
+Uch ehtimol:
+- A > B → Photon nazariyasi tasdiqlanadi
+- A ≈ B → faza filtri foydasiz
+- A < B → nazariya teskari ishlaydi
 
-## Cheklovlar — halol ro'yxat
-
-- "Bu POI kuchlimi?" — kodlanmaydi, sizning qaroringiz
-- HTF narrativi — kodlanmaydi
-- Probability bahosi — sizniki
-- Faza soddalashtirilgan — Photon ta'rifi murakkabroq
-- LC-1/LC-2A soddalashtirilgan — asl materialda ko'proq shart bor
-
-Bu **yordamchi vosita**, Photon'ning o'rnini bosmaydi.
-
----
-
-## BETA 1 dan farqi
-
-| | BETA 1 + LAOL | Photon (bu) |
-|---|---|---|
-| Kod | ~2000 qator | ~420 qator |
-| Taymfreym | 25 ta | 3 ta |
-| Signal turi | 640 | ~8 |
-| **Repaint** | **bor** | **yo'q** |
-| **Backtest** | **yo'q** | **bor** |
-
-Ataylab soddaroq qildim: 640 gipotezani 300 savdoda tekshirib bo'lmaydi.
-
----
-
-## Keyingi qadam
-
-1. Faylni TradingView'ga qo'ying
-2. XAUUSD yoki EURUSD **M15** da sinang
-3. Strategy Tester natijasini menga yuboring (skrinshot)
-
-**Kutilgan natija:** birinchi urinishda yomon chiqadi. Bu normal.
+Har uchalasi ham qimmatli ma'lumot.
