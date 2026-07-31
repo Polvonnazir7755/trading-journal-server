@@ -82,6 +82,9 @@ gUI   = "⑧ Ko'rinish"
 show_dash   = input.bool(true, "Dashboard", group = gUI)
 show_levels = input.bool(true, "Entry / SL / TP chiziqlari", group = gUI)
 show_zones  = input.bool(true, "OB / FVG zonalar", group = gUI)
+max_zones   = input.int(6, "Maks zona (ekranni tozalash)", minval = 2, maxval = 20, group = gUI)
+zone_len    = input.int(30, "Zona uzunligi (bar)", minval = 5, maxval = 200, group = gUI)
+show_debug  = input.bool(true, "DEBUG panel (nega savdo yo'q?)", group = gUI)
 show_struct = input.bool(true, "Swing / Internal belgilar", group = gUI)
 dash_pos    = input.string("top_right", "Dashboard joyi",
      options = ["top_right","top_left","bottom_right","bottom_left"], group = gUI)
@@ -93,6 +96,7 @@ type Zone
     float  bot
     bool   bull
     bool   tapped
+    int    bar
 
 type St
     float  sh = na
@@ -203,14 +207,14 @@ dirBear = mtfSwing.bias == "BEAR"
 var array<Zone> zAll = array.new<Zone>()
 
 f_pushZone(float t, float b, bool bull, string kind, color bg, color br) =>
-    if array.size(zAll) >= 12
+    if array.size(zAll) >= max_zones
         old = array.shift(zAll)
         box.delete(old.b)
-    bx = show_zones ? box.new(bar_index, t, bar_index + 20, b, bgcolor = bg,
-         border_color = br, border_width = 1, extend = extend.right,
+    bx = show_zones ? box.new(bar_index, t, bar_index + zone_len, b, bgcolor = bg,
+         border_color = br, border_width = 1,
          text = kind, text_size = size.tiny, text_color = color.new(color.white, 50),
          text_halign = text.align_left) : na
-    array.push(zAll, Zone.new(bx, t, b, bull, false))
+    array.push(zAll, Zone.new(bx, t, b, bull, false, bar_index))
 
 if barstate.isconfirmed
     if low > high[2] and (low - high[2]) > atr * 0.08
@@ -244,14 +248,16 @@ zoneTappedBear := false
 if array.size(zAll) > 0
     for i = 0 to array.size(zAll) - 1
         z = array.get(zAll, i)
-        if not z.tapped and low <= z.top and high >= z.bot
+        if not z.tapped and (bar_index - z.bar) >= 2 and low <= z.top and high >= z.bot
             z.tapped := true
             if z.bull
                 zoneTappedBull := true
             else
                 zoneTappedBear := true
             if not na(z.b)
-                box.set_border_width(z.b, 2)
+                box.set_right(z.b, bar_index)
+                box.set_bgcolor(z.b, color.new(color.gray, 92))
+                box.set_border_color(z.b, color.new(color.gray, 70))
 
 // ============================================================
 //  P&D
@@ -318,6 +324,37 @@ guardOK = lossToday < maxLossDay
 
 canTrade = tradingOn and phaseOK and inSess and guardOK and cooldownOK and
      strategy.position_size == 0 and barstate.isconfirmed
+
+// --- DEBUG hisoblagichlari: nega savdo yo'q? ---
+var int nRawSig   = 0
+var int nPhaseOK  = 0
+var int nDirOK    = 0
+var int nAllOK    = 0
+var int nPhA = 0
+var int nPhB = 0
+var int nPhC = 0
+var int nPhD = 0
+var int nPhR = 0
+
+if barstate.isconfirmed
+    if phase == "A"
+        nPhA += 1
+    if phase == "B"
+        nPhB += 1
+    if phase == "C"
+        nPhC += 1
+    if phase == "D"
+        nPhD += 1
+    if phase == "RANGE"
+        nPhR += 1
+    if rawLong or rawShort
+        nRawSig += 1
+        if phaseOK
+            nPhaseOK += 1
+            if (rawLong and dirBull) or (rawShort and dirBear)
+                nDirOK += 1
+                if inSess and guardOK and cooldownOK
+                    nAllOK += 1
 
 longCond  = canTrade and rawLong  and dirBull and (not needPD or inDisc)
 shortCond = canTrade and rawShort and dirBear and (not needPD or inPrem)
@@ -488,6 +525,43 @@ if show_dash and barstate.islast
          strategy.closedtrades >= 50 ? cB : color.new(color.orange,60))
     f_row(dash, 14, "Net / DD", str.tostring(strategy.netprofit, "#.#") + " / " +
          str.tostring(strategy.max_drawdown, "#.#"), strategy.netprofit > 0 ? cB : cR)
+
+// ============================================================
+//  DEBUG PANEL — nega savdo yo'q?
+// ============================================================
+var table dbg = na
+if show_debug and barstate.islast
+    table.delete(dbg)
+    dbg := table.new(position.bottom_left, 2, 10, border_width = 1,
+         frame_color = color.new(color.gray, 50), frame_width = 1)
+
+    table.cell(dbg, 0, 0, "DEBUG — nega savdo yo'q?", text_color = color.white,
+         text_size = size.small, bgcolor = color.new(color.orange, 40))
+    table.cell(dbg, 1, 0, "soni", text_color = color.white,
+         text_size = size.small, bgcolor = color.new(color.orange, 40))
+
+    f_row(dbg, 1, "Xom signal (sweep/POI)", str.tostring(nRawSig),
+         nRawSig > 100 ? cB : color.new(color.orange, 60))
+    f_row(dbg, 2, "  + faza filtridan o'tdi", str.tostring(nPhaseOK),
+         nPhaseOK > 50 ? cB : color.new(color.orange, 60))
+    f_row(dbg, 3, "  + yo'nalish mos", str.tostring(nDirOK),
+         nDirOK > 50 ? cB : color.new(color.orange, 60))
+    f_row(dbg, 4, "  + sessiya/guard/cooldown", str.tostring(nAllOK),
+         nAllOK >= 50 ? cB : cR)
+    f_row(dbg, 5, "JAMI OCHILGAN SAVDO", str.tostring(strategy.closedtrades),
+         strategy.closedtrades >= 50 ? cB : cR)
+
+    table.cell(dbg, 0, 6, "Faza barlar soni", text_color = color.white,
+         text_size = size.small, bgcolor = color.new(color.blue, 50))
+    table.cell(dbg, 1, 6, "bar", text_color = color.white,
+         text_size = size.small, bgcolor = color.new(color.blue, 50))
+    tot = nPhA + nPhB + nPhC + nPhD + nPhR
+    f_row(dbg, 7, "A / B", str.tostring(nPhA) + " / " + str.tostring(nPhB),
+         (nPhA + nPhB) > 0 ? cB : cR)
+    f_row(dbg, 8, "C / D", str.tostring(nPhC) + " / " + str.tostring(nPhD), cN)
+    f_row(dbg, 9, "RANGE", str.tostring(nPhR) + (tot > 0 ?
+         "  (" + str.tostring(nPhR * 100.0 / tot, "#") + "%)" : ""),
+         nPhR * 2 > tot ? color.new(color.orange, 60) : cN)
 
 // ------------------------------------------------------------ ALERTS
 alertcondition(longCond,  "LONG",  "Photon v2 LONG")

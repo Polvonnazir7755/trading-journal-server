@@ -4,132 +4,114 @@
 
 ---
 
-## v1 dan farqi — 5 ta muhim o'zgarish
+## Grafikda nima ko'rinishi kerak
+
+| Element | Ko'rinishi |
+|---|---|
+| **Dashboard** (o'ng yuqorida) | HTF/MTF swing/internal, faza, faza statistikasi |
+| **DEBUG panel** (chap pastda) | Nega savdo yo'q — bosqichma-bosqich |
+| **Zonalar** | OB / FVG qutilari (qisqa, cheksiz cho'zilmaydi) |
+| **▲ / ▼** | Kirish signallari |
+| **3 chiziq** | Entry (ko'k), SL (qizil), TP (yashil) — pozitsiya ochiqda |
+
+Agar dashboard **ko'rinmasa** → ⑧ bo'limda "Dashboard" yoqilganini tekshiring.
+
+---
+
+## DEBUG panel — eng muhim vosita
+
+Chap pastda chiqadi. Nega savdo yo'qligini **bosqichma-bosqich** ko'rsatadi:
+
+```
+DEBUG — nega savdo yo'q?          soni
+Xom signal (sweep/POI)            847
+  + faza filtridan o'tdi          198
+  + yo'nalish mos                  96
+  + sessiya/guard/cooldown         54
+JAMI OCHILGAN SAVDO                54
+
+Faza barlar soni                  bar
+A / B                        1240 / 1180
+C / D                        1190 / 1200
+RANGE                        6300  (56%)
+```
+
+### Qanday o'qish
+
+Qaysi qatorda raqam **keskin tushsa** — muammo o'sha yerda:
+
+| Qator kam bo'lsa | Yechim |
+|---|---|
+| **Xom signal** kam | ④ da ko'proq manba yoqing (CHoCH ham) |
+| **Faza filtri** ko'p kesyapti | ⑤ da C fazani ham yoqing |
+| **Yo'nalish** ko'p kesyapti | MTF swing bias tez o'zgaryapti → SWING fraktalni oshiring |
+| **Sessiya/cooldown** | ⑦ sessiyani o'chiring, cooldown 5→2 |
+| **RANGE 70%+** | SWING fraktalni kamaytiring (5→4) |
+
+---
+
+## v1 dan farqi
 
 ### 1. SWING va INTERNAL ajratildi ⭐
 
-Bu eng muhim tuzatish. v1 da faza noto'g'ri hisoblanardi.
-
-Photon'da swing va internal — bu **bir xil taymfreymda, turli fraktal
-o'lchamida** aniqlanadigan struktura:
+v1 da faza **noto'g'ri** hisoblanardi. Photon'da swing va internal —
+bir xil TF da, **turli fraktal o'lchamida**:
 
 ```
-MTF SWING    = katta fraktal (default 5)  -> asosiy tuzilma
-MTF INTERNAL = kichik fraktal (default 2) -> ichki harakat
-```
+MTF SWING    = katta fraktal (5)  -> asosiy tuzilma
+MTF INTERNAL = kichik fraktal (2) -> ichki harakat
 
-Faza endi to'g'ri:
-```
-Pro Swing    = MTF swing bias == HTF bias
-Pro Internal = MTF internal bias == MTF swing bias
-
-A = Pro Swing + Pro Internal
-B = Pro Swing + Counter Internal
-C = Counter Swing + Pro Internal
-D = Counter + Counter (AVOID)
+Pro Swing    = MTF swing == HTF bias
+Pro Internal = MTF internal == MTF swing
 ```
 
 ### 2. Signal manbai kengaytirildi
 
-v1 da faqat LTF sweep bor edi → 5 ta savdo chiqdi.
+A+B faza barcha holatlarning atigi **~22%** ini tashkil qiladi.
+50 savdo uchun ~225 signal kerak. Shuning uchun 4 ta manba:
 
-Endi 4 ta manba (④ bo'limda yoqib/o'chiriladi):
+LTF sweep · MTF sweep · POI tap · LTF CHoCH
 
-| Manba | Izoh |
-|---|---|
-| LTF sweep | joriy TF likvidlik olish |
-| MTF sweep | MTF darajasida sweep |
-| POI tap | OB/FVG zonaga tegish |
-| LTF CHoCH | agressiv (default o'chiq) |
+### 3. Zonalar endi ekranni to'ldirmaydi
 
-**Nega kerak:** hisoblab ko'rdim — A+B faza barcha holatlarning
-atigi **~22%** ini tashkil qiladi. 50 savdo uchun ~225 ta signal kerak.
+- `extend.right` olib tashlandi
+- Teginilgach — kulrang bo'lib **to'xtaydi**
+- Maks soni va uzunligi sozlanadi (⑧ bo'lim)
 
-### 3. Entry / SL / TP grafikda
+### 4. Entry / SL / TP chiziqlari
 
-- Pozitsiya ochiq bo'lganda 3 ta chiziq: ko'k (entry), qizil (SL), yashil (TP)
-- Kirish paytida yorliq: yo'nalish, faza, aniq narxlar
-
-### 4. Faza bo'yicha statistika ⭐
-
-Dashboard pastida:
-
-```
-FAZA STATISTIKASI     win/jami  WR
-A  (Pro+Pro)          12/28  43%
-B  (Pro+Counter)       8/22  36%
-C  (Counter+Pro)          —
-D  (AVOID)                —
-JAMI savdo            50  ✓
-```
-
-Rang: yashil = musbat PnL, qizil = manfiy.
-
-### 5. Default: faqat A + B
-
-C va D o'chirilgan. Siz so'raganingizdek.
+### 5. Faza bo'yicha statistika
 
 ---
 
-## Sozlash tartibi — 50 savdo yig'ish
+## Sozlash tartibi — 50 savdo
 
-**1-qadam: davrni kengaytiring**
+**1.** Properties → Backtest date range → **2022.01.01**
 
-Strategy Tester → Properties → Backtest date range: **2022.01.01** dan
+**2.** DEBUG panelga qarang, qaysi bosqichda tushib qolganini toping
 
-**2-qadam: savdo sonini tekshiring**
+**3.** Yuqoridagi jadval bo'yicha **bittadan** o'zgartiring
 
-Dashboard "JAMI savdo" qatorida ko'rinadi. 50 dan kam bo'lsa:
-
-| Nima | Qanday |
-|---|---|
-| Signal manbalari | ④ da hammasini yoqing (CHoCH ham) |
-| Cooldown | 5 → 2 ga tushiring |
-| MTF | 60 → 30 |
-| SWING fraktal | 5 → 4 |
-| Sessiya | ⑦ o'chiq bo'lsin (default) |
-
-**3-qadam: 50+ savdo bo'lgach**
-
-Endi faza statistikasini o'qing. A va B ni solishtiring.
-
----
-
-## SL rejimlari
-
-⑥ bo'limda:
-
-| Rejim | Qayerga qo'yadi |
-|---|---|
-| **Swing** | oxirgi swing low/high ortiga (default) |
-| ATR | ATR × koeffitsient |
-| Signal shami | joriy sham low/high |
+**4.** 50+ bo'lgach — **hech narsani o'zgartirmasdan** faza statistikasini o'qing
 
 ---
 
 ## ⚠️ Ogohlantirish
 
-Sozlamalarni "yaxshi natija" chiqquncha o'zgartirish — bu **overfitting**.
+Sozlamalarni "yaxshi natija" chiqquncha burash — **overfitting**.
 
-To'g'ri tartib:
-1. Avval **savdo sonini** 50+ ga yetkazing (statistika uchun)
-2. Keyin **hech narsani o'zgartirmasdan** natijani o'qing
-3. Faza A va B ni solishtiring
-
-Agar 20 ta sozlamani sinab, eng yaxshisini tanlasangiz — natija yolg'on
-bo'ladi. Jonli savdoda takrorlanmaydi.
+To'g'ri: avval savdo sonini oshiring, keyin natijani **o'qing**.
+Natija yomon bo'lsa ham — bu javob.
 
 ---
 
 ## Kutilgan natija
 
-Halol aytaman: **A fazada win rate yaxshi chiqishi shart emas.**
+**A fazada win rate yaxshi chiqishi shart emas.**
 
-Photon shunday da'vo qiladi, lekin bu **tekshirilmagan gipoteza** —
-aynan shuning uchun sinaymiz.
+Photon shunday da'vo qiladi, biz buni **sinayapmiz**:
 
-Uch ehtimol:
-- A > B → Photon nazariyasi tasdiqlanadi
+- A > B → nazariya tasdiqlanadi
 - A ≈ B → faza filtri foydasiz
 - A < B → nazariya teskari ishlaydi
 
