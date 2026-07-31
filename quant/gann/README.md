@@ -112,14 +112,65 @@ shunchaki "narx qandaydir setkaga tegadi" degan gap.
 
 ---
 
+---
+
+# 2-KALKULYATOR: "Gann Angle Calculator"
+
+## Formula
+
+```
+daraja = ( sqrt(baza) ± burchak/180 ) ^ 2
+
+DEGREE FACTOR = burchak / 180
+```
+
+## Tasdiqlash
+
+**RESISTANCE, baza 2611** (o'rtacha farq 0.38 punkt):
+
+| burchak | factor | hisoblangan | kalkulyator |
+|---|---|---|---|
+| 22.5° | 0.125 | 2623.79 | 2624 |
+| 45° | 0.250 | 2636.61 | 2637 |
+| 90° | 0.500 | 2662.35 | 2662 |
+| 180° | 1.000 | 2714.20 | 2714 |
+| 360° | 2.000 | 2819.39 | 2819 |
+
+**SUPPORT, baza 2762** (o'rtacha farq 0.23 punkt) — xuddi shunday aniq.
+
+Farqlar 0.5 punktdan kam — kalkulyator butun songa yaxlitlaydi.
+
+**DEGREE FACTOR bloki:** `factor × 180 = 77.5102` (ekranda 77.51 deb yaxlitlangan).
+Bu narxning eng yaqin 45-gradus belgisidan uzoqligini ko'rsatadi:
+`sqrt(6349) − 79.25 = 0.430612` ✓
+
+## MUHIM: ikkala kalkulyator BIR XIL tizim
+
+| Sq9 qadam | Burchak | Factor |
+|---|---|---|
+| 1/8 | 22.5° | 0.125 |
+| 2/8 | 45° | 0.250 |
+| 4/8 | 90° | 0.500 |
+| 8/8 | 180° | 1.000 |
+| 16/8 | 360° | 2.000 |
+
+**2-kalkulyator yangi narsa emas.** O'sha Square of 9, faqat qadamlar
+burchak tilida yozilgan. `180° = 1.0` birlik = sqrt shkalasidagi to'liq qadam.
+
+Yagona amaliy farq: 12.5° burchagi Sq9 setkasiga tushmaydi (0.56/8).
+
+---
+
 ## Fayllar
 
 | Fayl | Vazifasi |
 |---|---|
-| `gann_sq9.py` | Kalkulyator + skrinshot bilan tasdiqlash |
+| `gann_sq9.py` | 1-kalkulyator (Square of 9) |
+| `gann_angle.py` | 2-kalkulyator (Angle) + ikkalasining bog'liqligi |
 | `gann_reality.py` | Masshtab va zichlik tahlili |
 
 ```bash
-python3 gann_sq9.py       # formulani ko'rish
-python3 gann_reality.py   # cheklovlarni ko'rish
+python3 gann_sq9.py       # 1-kalkulyator
+python3 gann_angle.py     # 2-kalkulyator
+python3 gann_reality.py   # cheklovlar
 ```
