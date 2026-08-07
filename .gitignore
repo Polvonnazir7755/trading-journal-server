@@ -6,3 +6,7 @@ licenses.json
 # Katta bozor ma'lumotlari
 quant/data/*.csv
 quant/data/*.zip
+
+# AI hamroh xotirasi
+assistant/memory.db
+assistant/*.db
