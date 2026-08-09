@@ -10,3 +10,8 @@ quant/data/*.zip
 # AI hamroh xotirasi
 assistant/memory.db
 assistant/*.db
+
+# Avto test keshi va media
+avtotest/cache/
+avtotest/demo_frames/
+avtotest/*.mp4
