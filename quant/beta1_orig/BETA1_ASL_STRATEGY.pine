@@ -50,8 +50,16 @@ beOffset = input.float(0.0, "BE ofset (R) — kichik foyda qoldirish", minval = 
 
 useTrail = input.bool(false, "Trailing stop", group = gBE,
      tooltip = "SL narx ortidan suriladi. Foydani ushlaydi, lekin erta chiqarishi mumkin.")
-trailR   = input.float(3.0, "Trailing masofa (R)", minval = 0.5, step = 0.5, group = gBE)
-trailStartR = input.float(2.0, "Trailing boshlanishi (R)", minval = 0.5, step = 0.5, group = gBE)
+trailR   = input.float(2.0, "Trailing masofa (R)", minval = 0.5, step = 0.5, group = gBE)
+trailStartR = input.float(3.0, "Trailing boshlanishi (R)", minval = 0.5, step = 0.5, group = gBE)
+
+usePartial = input.bool(false, "Qismiy chiqish (partial TP)", group = gBE,
+     tooltip = "Pozitsiyaning bir qismini yaqinroq TP da yopadi.\n'6R ga borib SL oldi' muammosini hal qiladi.")
+p1Pct    = input.int(50, "1-qism hajmi (%)", minval = 10, maxval = 90, group = gBE)
+p1R      = input.float(2.0, "1-qism TP (R)", minval = 0.5, step = 0.5, group = gBE)
+p2Pct    = input.int(30, "2-qism hajmi (%)", minval = 0, maxval = 60, group = gBE,
+     tooltip = "0 = ikkinchi qism yo'q")
+p2R      = input.float(4.0, "2-qism TP (R)", minval = 1.0, step = 0.5, group = gBE)
 
 soft_start = input.bool(false, "SOFT START", group="||--- MUST BE ENABLED ---||")
 
@@ -2045,7 +2053,13 @@ if shortSig
         rAmt = riskMode == "Dollar $" ? riskUsd : strategy.equity * riskPct / 100
         q = rAmt / (rng + slipVal)
         strategy.entry("S", strategy.short, qty = q, comment = tagShort + "|" + final_entry_bear_pattern)
-        strategy.exit("Sx", "S", stop = s + slipVal, limit = tp)
+        if usePartial
+            strategy.exit("Sx1", "S", qty_percent = p1Pct, stop = s + slipVal, limit = e - rng * p1R)
+            if p2Pct > 0
+                strategy.exit("Sx2", "S", qty_percent = p2Pct, stop = s + slipVal, limit = e - rng * p2R)
+            strategy.exit("Sx3", "S", stop = s + slipVal, limit = tp)
+        else
+            strategy.exit("Sx", "S", stop = s + slipVal, limit = tp)
         posEntry := e
         posSL := s + slipVal
         posTP := tp
@@ -2066,7 +2080,13 @@ if longSig
         rAmt = riskMode == "Dollar $" ? riskUsd : strategy.equity * riskPct / 100
         q = rAmt / (rng + slipVal)
         strategy.entry("L", strategy.long, qty = q, comment = tagLong + "|" + final_entry_bull_pattern)
-        strategy.exit("Lx", "L", stop = s - slipVal, limit = tp)
+        if usePartial
+            strategy.exit("Lx1", "L", qty_percent = p1Pct, stop = s - slipVal, limit = e + rng * p1R)
+            if p2Pct > 0
+                strategy.exit("Lx2", "L", qty_percent = p2Pct, stop = s - slipVal, limit = e + rng * p2R)
+            strategy.exit("Lx3", "L", stop = s - slipVal, limit = tp)
+        else
+            strategy.exit("Lx", "L", stop = s - slipVal, limit = tp)
         posEntry := e
         posSL := s - slipVal
         posTP := tp
@@ -2099,10 +2119,22 @@ if strategy.position_size != 0 and not na(posR) and posR > 0
     // SL faqat foyda tomonga suriladi
     if posLong and newSL > posSL
         posSL := newSL
-        strategy.exit("Lx", "L", stop = posSL, limit = posTP)
+        if usePartial
+            strategy.exit("Lx1", "L", qty_percent = p1Pct, stop = posSL, limit = posEntry + posR * p1R)
+            if p2Pct > 0
+                strategy.exit("Lx2", "L", qty_percent = p2Pct, stop = posSL, limit = posEntry + posR * p2R)
+            strategy.exit("Lx3", "L", stop = posSL, limit = posTP)
+        else
+            strategy.exit("Lx", "L", stop = posSL, limit = posTP)
     if not posLong and newSL < posSL
         posSL := newSL
-        strategy.exit("Sx", "S", stop = posSL, limit = posTP)
+        if usePartial
+            strategy.exit("Sx1", "S", qty_percent = p1Pct, stop = posSL, limit = posEntry - posR * p1R)
+            if p2Pct > 0
+                strategy.exit("Sx2", "S", qty_percent = p2Pct, stop = posSL, limit = posEntry - posR * p2R)
+            strategy.exit("Sx3", "S", stop = posSL, limit = posTP)
+        else
+            strategy.exit("Sx", "S", stop = posSL, limit = posTP)
 
 // pozitsiya yopilganda tozalash
 if strategy.position_size == 0
@@ -2121,7 +2153,7 @@ plotshape(shortSig, "SHORT", shape.triangledown, location.abovebar, color.new(co
 var table dsh = na
 if barstate.islast
     table.delete(dsh)
-    dsh := table.new(position.top_right, 2, 10, border_width = 1, frame_color = color.new(color.gray, 50), frame_width = 1)
+    dsh := table.new(position.top_right, 2, 11, border_width = 1, frame_color = color.new(color.gray, 50), frame_width = 1)
     cGood = color.new(color.green, 60)
     cBad  = color.new(color.red, 60)
     cNeut = color.new(color.gray, 60)
@@ -2142,6 +2174,8 @@ if barstate.islast
     table.cell(dsh, 1, 6, str.tostring(100.0/(1.0+TP_MULTIPLIER), "#.#") + "%", text_color = color.white, text_size = size.small, bgcolor = cNeut)
     table.cell(dsh, 0, 7, "Net profit", text_color = color.white, text_size = size.small, bgcolor = color.new(color.black, 25))
     table.cell(dsh, 1, 7, str.tostring(strategy.netprofit, "#.##"), text_color = color.white, text_size = size.small, bgcolor = strategy.netprofit > 0 ? cGood : cBad)
+    table.cell(dsh, 0, 10, "Chiqish sxemasi", text_color = color.white, text_size = size.small, bgcolor = color.new(color.black, 25))
+    table.cell(dsh, 1, 10, usePartial ? str.tostring(p1Pct) + "%@" + str.tostring(p1R) + "R" + (p2Pct > 0 ? " + " + str.tostring(p2Pct) + "%@" + str.tostring(p2R) + "R" : "") + " + qolgani@8R" : "100% @ 8R", text_color = color.white, text_size = size.small, bgcolor = usePartial ? color.new(color.teal, 50) : cNeut)
     table.cell(dsh, 0, 9, "Poz. boshqaruvi", text_color = color.white, text_size = size.small, bgcolor = color.new(color.black, 25))
     table.cell(dsh, 1, 9, (useBE ? "BE " + str.tostring(beAtR) + "R" : "") + (useTrail ? " Trail " + str.tostring(trailR) + "R" : "") + (not useBE and not useTrail ? "yo'q" : ""), text_color = color.white, text_size = size.small, bgcolor = useBE or useTrail ? color.new(color.purple, 60) : cNeut)
     table.cell(dsh, 0, 8, "Max DD", text_color = color.white, text_size = size.small, bgcolor = color.new(color.black, 25))

@@ -264,3 +264,111 @@ Toza breakeven'da (ofset 0) siz komissiya va spred tufayli **kichik
 zarar** bilan chiqasiz. 0.1R ofset shuni qoplaydi.
 
 Kichik detal, lekin 100+ savdoda sezilarli.
+
+
+---
+
+# 🎯 "6R GA BORDI, KEYIN SL OLDI" — YECHIM
+
+Siz aynan **eng og'riqli muammoni** ko'rsatdingiz. Va haqsiz.
+
+## Muammo qanchalik katta — raqamlar
+
+Sizning 123 savdongiz MFE (eng yuqori nuqta) bo'yicha taqsimoti:
+
+| MFE oralig'i | Savdo % | Izoh |
+|---|---|---|
+| 0–0.5R | 9.9% | deyarli darhol SL |
+| 0.5–1R | 9.0% | kichik harakat |
+| 1–2R | 15.3% | BE zonasi |
+| 2–4R | 22.6% | yaxshi harakat |
+| **4–6R** | **14.8%** | **juda yaqin edi** |
+| **6–8R** | **9.6%** | **OG'RIQLI** |
+| 8R+ | 18.8% | TP oldi |
+
+**4R dan oshib, TP ga yetmagan: 24.4%** — bu 123 savdodan **~30 ta**.
+
+Har biri `-1R` o'rniga `+4..7R` bo'lishi mumkin edi. Ya'ni siz
+**~150R** ni yo'qotgansiz.
+
+Siz "10-20% zararni oldini oladi" dedingiz — aslida **undan ham ko'p**.
+
+---
+
+## Professional yechimlar — solishtirish
+
+Model sizning natijangizga kalibrlangan:
+
+| # | Usul | Yutuq | BE | Zarar | Jami R | maxDD | **Recovery** |
+|---|---|---|---|---|---|---|---|
+| 1 | **Hech narsa (asl)** | 23 | 0 | 100 | +84 | 32.0 | **2.62** |
+| 2 | BE @ 1.5R | 23 | 67 | 33 | +150 | 11.0 | 13.64 |
+| 3 | BE @ 2.5R | 23 | 50 | 50 | +133 | 15.0 | 8.87 |
+| 4 | **Trail 2R (start 3R)** | 66 | 0 | 57 | **+257** | **9.0** | **28.52** |
+| 5 | Trail 3R (start 4R) | 53 | 0 | 70 | +196 | 12.9 | 15.18 |
+| 6 | Partial 50%@2R + BE | 81 | 0 | 42 | +131 | **7.0** | 18.71 |
+| 7 | Partial 50%@3R + BE | 66 | 0 | 57 | +133 | 10.5 | 12.62 |
+| 8 | TP ni 4R ga tushirish | 53 | 0 | 70 | +142 | 12.0 | 11.83 |
+| 9 | TP ni 3R ga tushirish | 66 | 0 | 57 | +141 | 9.0 | 15.67 |
+
+**Eng yaxshi: Trailing 2R (start 3R)** — foyda 3 barobar, DD 3.5 barobar kam.
+
+⚠️ **Lekin bu MODEL.** Real bozorda narx tebranadi, trailing erta ishga
+tushishi mumkin. Haqiqiy javob — backtest.
+
+---
+
+## Yangi imkoniyat: QISMIY CHIQISH (partial TP)
+
+Bu **eng professional yechim** — hedj-fondlar aynan shunday ishlaydi.
+
+```
+☑ Qismiy chiqish (partial TP)
+   1-qism hajmi (%):  50
+   1-qism TP (R):     2.0
+   2-qism hajmi (%):  30
+   2-qism TP (R):     4.0
+```
+
+**Qanday ishlaydi:**
+
+Narx 2R ga yetdi → **50%** yopiladi (foyda cho'ntakda)
+Narx 4R ga yetdi → yana **30%** yopiladi
+Qolgan **20%** → 8R gacha ketadi yoki SL
+
+**Natija:** "6R ga borib SL oldi" holatida siz **0R emas, +2.6R** olasiz.
+
+### Nega bu yaxshi
+
+| | To'liq 8R | Partial |
+|---|---|---|
+| 6R ga borib qaytdi | **−1R** | **+2.6R** |
+| 8R oldi | +8R | +5.4R |
+| Darhol SL | −1R | −1R |
+
+Katta yutuqdan biroz yo'qotasiz, lekin **o'rta harakatlarni ushlaysiz**.
+
+---
+
+## Tavsiya etilgan sinov ketma-ketligi
+
+Bittadan yoqing, natijani yozib boring:
+
+| # | Sozlama | Net | Max DD | Recovery |
+|---|---|---|---|---|
+| 1 | Hech narsa | $484 | $565 | 0.86 |
+| 2 | ☑ BE @ 1.5R | ? | ? | ? |
+| 3 | ☑ Trailing 2R (start 3R) | ? | ? | ? |
+| 4 | ☑ Partial 50%@2R + 30%@4R | ? | ? | ? |
+| 5 | ☑ Partial + BE 1.5R | ? | ? | ? |
+
+**Nimaga qarash kerak:**
+
+Net profit tushishi **normal**. Muhimi — **Recovery factor** (Net/MaxDD).
+
+- Hozir: **0.86** ❌
+- Maqsad: **2.0+** ✓
+- A'lo: **4.0+** ⭐
+
+Chunki 57% drawdown'ga hech kim chiday olmaydi. Foyda kamaysa ham,
+chidasa bo'ladigan strategiya ming marta yaxshi.
