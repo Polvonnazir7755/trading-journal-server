@@ -648,7 +648,6 @@ var int nBlockPos = 0
 var int nBlkSess = 0
 var int nBlkGuard = 0
 var int nBlkCool = 0
-posFree0 = allowPyramid or strategy.position_size == 0
 
 if rawB or rawS
     nBase += 1
@@ -676,15 +675,14 @@ if rawB or rawS
                 nBlkGuard += 1
             else if not coolOK
                 nBlkCool += 1
-            else if not posFree0
+            else if strategy.position_size != 0 and not allowPyramid
                 nBlockPos += 1
             else
                 nAll += 1
 
 // ============================================================= ENTRY
-posFree = allowPyramid or strategy.position_size == 0
 canTrade = tradingOn and inSess and guardOK and coolOK and
-     posFree and barstate.isconfirmed
+     (allowPyramid or strategy.position_size == 0) and barstate.isconfirmed
 
 // ---- BAZA (CONFIRMED darajasi): S1-S4 shakllandi ----
 confB = baseB
@@ -742,6 +740,7 @@ var float curR = na
 var string curDir = ""
 var bool beDone = false
 
+rAmt = riskMode == "Dollar $" ? risk_usd : strategy.equity * risk_pct / 100
 lo10 = ta.lowest(low, 10)
 hi10 = ta.highest(high, 10)
 
@@ -760,7 +759,6 @@ if longCond
     r = close - sl
     if r > 0
         tp = close + r * tpMult
-        rAmt = riskMode == "Dollar $" ? risk_usd : strategy.equity * risk_pct / 100
         q = rAmt / r
         strategy.entry("L", strategy.long, qty = q, comment = typeS + "|" + lvlTagS)
         if usePartial
@@ -782,7 +780,6 @@ if shortCond
     r = sl - close
     if r > 0
         tp = close - r * tpMult
-        rAmt = riskMode == "Dollar $" ? risk_usd : strategy.equity * risk_pct / 100
         q = rAmt / r
         strategy.entry("S", strategy.short, qty = q, comment = typeB + "|" + lvlTagB)
         if usePartial
@@ -848,7 +845,7 @@ var float pCNF = 0.0
 if strategy.closedtrades > nz(strategy.closedtrades[1])
     ix = strategy.closedtrades - 1
     pr = strategy.closedtrades.profit(ix)
-    cm = strategy.closedtrades.entry_comment(ix)
+    cm = nz(strategy.closedtrades.entry_comment(ix), "")
     // --- setup turi ---
     if str.contains(cm, "S1")
         cS1 += 1
