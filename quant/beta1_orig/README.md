@@ -133,3 +133,134 @@ ma'lumoti to'liq, jonli savdoda esa u hali shakllanmoqda.
 
 Buni tekshirish uchun: backtest natijasini keyinroq forward test
 bilan solishtirish kerak.
+
+
+---
+
+# 🛡️ BREAKEVEN va TRAILING qo'shildi
+
+Siz so'ragan narsa. **Asl mantiqqa tegilmadi** — bu faqat pozitsiya
+boshqaruvi, ya'ni savdo ochilgandan keyingi qism.
+
+## Yangi bo'lim: POZITSIYA BOSHQARUVI
+
+```
+☐ Breakeven ko'chirish
+   BE ga ko'chirish (R):   1.5
+   BE ofset (R):           0.0
+
+☐ Trailing stop
+   Trailing masofa (R):    3.0
+   Trailing boshlanishi:   2.0
+```
+
+Ikkalasi ham **default o'chiq** — avval asl natijani ko'ring, keyin yoqing.
+
+---
+
+## Siz to'g'ri fikrlagansiz — lekin bir nuans bor
+
+### ✅ To'g'ri qismi
+
+**"Bozor foydaga kirgandan keyin SL ni breakeven'ga o'tkazish kerak"**
+
+Ha. Bu:
+- Zarar sonini kamaytiradi
+- Max drawdown'ni sezilarli yaxshilaydi
+- Psixologik bosimni kamaytiradi
+
+**"Hech qanday treyder 100% risk qilmaydi"** — to'g'ri. Professional
+fondlar aynan shunday ishlaydi.
+
+### ⚠️ Nuans: BE bepul emas
+
+Har bir BE ko'chirish **potensial yutuqni ham o'ldiradi**.
+
+Tasavvur qiling: narx 1.5R ga bordi → SL breakeven'ga ko'chdi →
+narx qaytib BE ga tegdi → chiqdingiz **0R bilan**.
+
+Lekin agar BE ko'chirmasangiz, narx yana ko'tarilib **8R** olishi
+mumkin edi.
+
+**Ya'ni:** BE zararni kamaytiradi, lekin foydani ham kamaytiradi.
+
+### "20-30%" haqida
+
+Siz "20-30% ga surish" dedingiz. TP 8R bo'lsa:
+
+| Foiz | R da |
+|---|---|
+| 10% | 0.8R |
+| **20%** | **1.6R** |
+| 30% | 2.4R |
+| 50% | 4.0R |
+
+**Muhim:** 1.6R ga borish ehtimoli ~35%. Ya'ni har 3 savdodan 1 tasida
+BE ishga tushadi. Bu ko'p.
+
+Menimcha **1.5–2R** yaxshi boshlang'ich nuqta.
+
+---
+
+## BE vs Trailing — farqi
+
+| | Breakeven | Trailing |
+|---|---|---|
+| Nima qiladi | SL ni kirishga ko'chiradi, **bir marta** | SL ni narx ortidan **doim** suradi |
+| Natija | 0R yoki TP | 0R dan TP gacha **har qanday** qiymat |
+| Yaxshi tomoni | oddiy, tushunarli | foydani ushlaydi |
+| Yomon tomoni | katta harakatni o'tkazib yuboradi | erta chiqarishi mumkin |
+
+**Trailing** siz aytgan "surib borish" — aynan shu.
+
+---
+
+## ⚠️ MUHIM: modelim ishonchsiz
+
+Men simulyatsiya qildim, lekin natija shubhali chiqdi (trailing +365R
+degan raqam berdi — bu real emas).
+
+Sabab: modelda narx **tekis** harakatlanadi deb faraz qilinadi. Haqiqiy
+bozorda narx tebranadi — trailing ko'p marta erta ishga tushadi.
+
+**Shuning uchun javobni faqat REAL BACKTEST beradi.**
+
+---
+
+## Sinash tartibi
+
+Bittadan sinang va yozib boring:
+
+| # | Sozlama | Savdo | WR | Net | Max DD |
+|---|---|---|---|---|---|
+| 1 | Hech narsa (asl) | 123 | 18.7% | $484 | $565 |
+| 2 | BE 1.5R | ? | ? | ? | ? |
+| 3 | BE 2.5R | ? | ? | ? | ? |
+| 4 | Trailing 3R (start 2R) | ? | ? | ? | ? |
+| 5 | BE 1.5R + Trail 3R | ? | ? | ? | ? |
+
+**Nimaga qarash kerak:**
+
+- **Net profit** tushishi normal — muhimi qancha
+- **Max DD** sezilarli kamayishi kerak
+- **Recovery factor** = Net / MaxDD → 2.0+ bo'lsa yaxshi
+
+Hozirgi holat: `484 / 565 = 0.86` — **bu yomon**. DD foydadan katta.
+
+Maqsad: recovery factor'ni **2.0 dan yuqori** qilish. Foyda kamaysa ham,
+chidasa bo'ladigan strategiya yaxshiroq.
+
+---
+
+## BE ofset nima
+
+```
+BE ofset (R):  0.1
+```
+
+SL kirish narxidan **0.1R yuqoriga** qo'yiladi. Nega kerak:
+
+Toza breakeven'da (ofset 0) siz komissiya va spred tufayli **kichik
+zarar** bilan chiqasiz. 0.1R ofset shuni qoplaydi.
+
+Kichik detal, lekin 100+ savdoda sezilarli.

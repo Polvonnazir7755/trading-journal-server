@@ -41,6 +41,18 @@ slipTick = input.int(2, "Slippage (tick)", minval = 0, group = gTR)
 useTP40  = input.bool(false, "TP = 40 pip (8R o'rniga)", group = gTR,
      tooltip = "Asl kodda ikkala target ham chiziladi. Qaysi biri asosiy - tanlang.")
 
+gBE = "POZITSIYA BOSHQARUVI (asl mantiqqa tegmaydi)"
+useBE    = input.bool(false, "Breakeven ko'chirish", group = gBE,
+     tooltip = "Narx belgilangan R ga yetsa, SL kirish narxiga ko'chadi.\nZararni kamaytiradi, lekin ba'zi yutuqlarni ham yo'qotadi.")
+beAtR    = input.float(1.5, "BE ga ko'chirish (R)", minval = 0.2, step = 0.1, group = gBE)
+beOffset = input.float(0.0, "BE ofset (R) — kichik foyda qoldirish", minval = 0.0, step = 0.1, group = gBE,
+     tooltip = "0.1 = SL kirishdan 0.1R yuqoriga qo'yiladi (komissiyani qoplaydi)")
+
+useTrail = input.bool(false, "Trailing stop", group = gBE,
+     tooltip = "SL narx ortidan suriladi. Foydani ushlaydi, lekin erta chiqarishi mumkin.")
+trailR   = input.float(3.0, "Trailing masofa (R)", minval = 0.5, step = 0.5, group = gBE)
+trailStartR = input.float(2.0, "Trailing boshlanishi (R)", minval = 0.5, step = 0.5, group = gBE)
+
 soft_start = input.bool(false, "SOFT START", group="||--- MUST BE ENABLED ---||")
 
 show_hcs_boxes = true
@@ -2012,6 +2024,15 @@ tagLong  = longSigFinal ? "FINAL" : "CONF"
 slipVal = slipTick * syminfo.mintick
 commVal = useComm ? commUsd : 0.0
 
+// --- pozitsiya boshqaruvi holati ---
+var float posEntry = na
+var float posSL    = na
+var float posTP    = na
+var float posR     = na
+var bool  posLong  = false
+var bool  beMoved  = false
+var float bestPrice = na
+
 if shortSig
     e = math.max(open, close)
     s = high
@@ -2025,6 +2046,13 @@ if shortSig
         q = rAmt / (rng + slipVal)
         strategy.entry("S", strategy.short, qty = q, comment = tagShort + "|" + final_entry_bear_pattern)
         strategy.exit("Sx", "S", stop = s + slipVal, limit = tp)
+        posEntry := e
+        posSL := s + slipVal
+        posTP := tp
+        posR := rng
+        posLong := false
+        beMoved := false
+        bestPrice := e
 
 if longSig
     e = math.min(open, close)
@@ -2039,6 +2067,52 @@ if longSig
         q = rAmt / (rng + slipVal)
         strategy.entry("L", strategy.long, qty = q, comment = tagLong + "|" + final_entry_bull_pattern)
         strategy.exit("Lx", "L", stop = s - slipVal, limit = tp)
+        posEntry := e
+        posSL := s - slipVal
+        posTP := tp
+        posR := rng
+        posLong := true
+        beMoved := false
+        bestPrice := e
+
+// ============================================================
+//  BREAKEVEN va TRAILING (ixtiyoriy, default o'chiq)
+// ============================================================
+if strategy.position_size != 0 and not na(posR) and posR > 0
+    // eng yaxshi narxni kuzatish
+    bestPrice := posLong ? math.max(nz(bestPrice, posEntry), high)
+         : math.min(nz(bestPrice, posEntry), low)
+    mfeR = posLong ? (bestPrice - posEntry) / posR : (posEntry - bestPrice) / posR
+
+    float newSL = posSL
+
+    // --- 1) Breakeven ---
+    if useBE and not beMoved and mfeR >= beAtR
+        beMoved := true
+        newSL := posLong ? posEntry + posR * beOffset : posEntry - posR * beOffset
+
+    // --- 2) Trailing ---
+    if useTrail and mfeR >= trailStartR
+        tsl = posLong ? bestPrice - posR * trailR : bestPrice + posR * trailR
+        newSL := posLong ? math.max(newSL, tsl) : math.min(newSL, tsl)
+
+    // SL faqat foyda tomonga suriladi
+    if posLong and newSL > posSL
+        posSL := newSL
+        strategy.exit("Lx", "L", stop = posSL, limit = posTP)
+    if not posLong and newSL < posSL
+        posSL := newSL
+        strategy.exit("Sx", "S", stop = posSL, limit = posTP)
+
+// pozitsiya yopilganda tozalash
+if strategy.position_size == 0
+    posR := na
+    bestPrice := na
+
+// joriy SL/TP chiziqlari
+plot(strategy.position_size != 0 ? posSL : na, "SL", color.new(color.red, 0), 2, plot.style_linebr)
+plot(strategy.position_size != 0 ? posTP : na, "TP", color.new(color.green, 0), 2, plot.style_linebr)
+plot(strategy.position_size != 0 ? posEntry : na, "Entry", color.new(color.blue, 0), 1, plot.style_linebr)
 
 plotshape(longSig,  "LONG",  shape.triangleup,   location.belowbar, color.new(color.green,0), size = size.small)
 plotshape(shortSig, "SHORT", shape.triangledown, location.abovebar, color.new(color.red,0),   size = size.small)
@@ -2047,7 +2121,7 @@ plotshape(shortSig, "SHORT", shape.triangledown, location.abovebar, color.new(co
 var table dsh = na
 if barstate.islast
     table.delete(dsh)
-    dsh := table.new(position.top_right, 2, 9, border_width = 1, frame_color = color.new(color.gray, 50), frame_width = 1)
+    dsh := table.new(position.top_right, 2, 10, border_width = 1, frame_color = color.new(color.gray, 50), frame_width = 1)
     cGood = color.new(color.green, 60)
     cBad  = color.new(color.red, 60)
     cNeut = color.new(color.gray, 60)
@@ -2068,6 +2142,8 @@ if barstate.islast
     table.cell(dsh, 1, 6, str.tostring(100.0/(1.0+TP_MULTIPLIER), "#.#") + "%", text_color = color.white, text_size = size.small, bgcolor = cNeut)
     table.cell(dsh, 0, 7, "Net profit", text_color = color.white, text_size = size.small, bgcolor = color.new(color.black, 25))
     table.cell(dsh, 1, 7, str.tostring(strategy.netprofit, "#.##"), text_color = color.white, text_size = size.small, bgcolor = strategy.netprofit > 0 ? cGood : cBad)
+    table.cell(dsh, 0, 9, "Poz. boshqaruvi", text_color = color.white, text_size = size.small, bgcolor = color.new(color.black, 25))
+    table.cell(dsh, 1, 9, (useBE ? "BE " + str.tostring(beAtR) + "R" : "") + (useTrail ? " Trail " + str.tostring(trailR) + "R" : "") + (not useBE and not useTrail ? "yo'q" : ""), text_color = color.white, text_size = size.small, bgcolor = useBE or useTrail ? color.new(color.purple, 60) : cNeut)
     table.cell(dsh, 0, 8, "Max DD", text_color = color.white, text_size = size.small, bgcolor = color.new(color.black, 25))
     table.cell(dsh, 1, 8, str.tostring(strategy.max_drawdown, "#.##"), text_color = color.white, text_size = size.small, bgcolor = cNeut)
 
