@@ -55,7 +55,15 @@ useHCS  = input.bool(true,  "HCS — qayta test",     group = gPT)
 useTBE  = input.bool(true,  "TBE — 5 bosqich",      group = gPT)
 
 // --------------------------------------------------------- ④ SETUP
-gSU = "④ Setup filtri"
+gSU = "④ Kirish darajasi"
+entryLevel = input.string("FINAL (sifatli)", "Kirish darajasi",
+     options = ["CONFIRMED (ko'p savdo)", "FINAL (sifatli)", "IKKALASI (solishtirish)"],
+     group = gSU,
+     tooltip = "CONFIRMED = S1-S4 baza yetarli (ko'p signal, o'rtacha sifat)\nFINAL = + LAOL buzilishi + SCALP retest + oyna (kam signal, yuqori sifat)\nIKKALASI = ikkalasi ham savdo ochadi, statistika alohida")
+useCONF  = entryLevel == "CONFIRMED (ko'p savdo)" or entryLevel == "IKKALASI (solishtirish)"
+useFINAL = entryLevel == "FINAL (sifatli)" or entryLevel == "IKKALASI (solishtirish)"
+setupWindow = input.int(10, "FINAL: setup oynasi (bar)", minval = 1, maxval = 50, group = gSU,
+     tooltip = "Baza shakllangandan keyin necha bar ichida FINAL shartlari bajarilishi kerak")
 useS1 = input.bool(true, "S1 — scalp EM + entry retest",       group = gSU)
 useS2 = input.bool(true, "S2 — S1 + scalp retest",             group = gSU)
 useS3 = input.bool(true, "S3 — scalp forming + entry retest",  group = gSU)
@@ -606,13 +614,42 @@ if rawB or rawS
 canTrade = tradingOn and inSess and guardOK and coolOK and
      strategy.position_size == 0 and barstate.isconfirmed
 
+// ---- BAZA (CONFIRMED darajasi): S1-S4 shakllandi ----
+confB = baseB
+confS = baseS
+
+// ---- setup oynasi: baza qachon shakllangan? ----
+var int baseBarB = na
+var int baseBarS = na
+if confB
+    baseBarB := bar_index
+if confS
+    baseBarS := bar_index
+inWinB = not na(baseBarB) and (bar_index - baseBarB) <= setupWindow
+inWinS = not na(baseBarS) and (bar_index - baseBarS) <= setupWindow
+
+// ---- FINAL darajasi: baza + qo'shimcha tasdiqlar ----
 okLaolB  = not needLAOLbreak or laolBrokeB
 okLaolS  = not needLAOLbreak or laolBrokeS
 okScalpB = not needScalpRet  or scalpFuRet_B
 okScalpS = not needScalpRet  or scalpFuRet_S
 
-shortCond = canTrade and baseB and okLaolB and okScalpB
-longCond  = canTrade and baseS and okLaolS and okScalpS
+finalB = inWinB and okLaolB and okScalpB
+finalS = inWinS and okLaolS and okScalpS
+
+// ---- yakuniy shartlar ----
+// FINAL ustunlikka ega: agar ikkalasi yoqilgan bo'lsa va FINAL bajarilsa,
+// savdo FINAL sifatida belgilanadi
+shortFinal = canTrade and useFINAL and finalB
+longFinal  = canTrade and useFINAL and finalS
+shortConf  = canTrade and useCONF  and confB and not shortFinal
+longConf   = canTrade and useCONF  and confS and not longFinal
+
+shortCond = shortFinal or shortConf
+longCond  = longFinal or longConf
+
+lvlTagB = shortFinal ? "FINAL" : "CONF"
+lvlTagS = longFinal  ? "FINAL" : "CONF"
 
 var float curE = na
 var float curSL = na
@@ -638,7 +675,7 @@ if longCond
     if r > 0
         tp = close + r * tpMult
         q = (strategy.equity * risk_pct / 100) / r
-        strategy.entry("L", strategy.long, qty = q, comment = typeS + "|L")
+        strategy.entry("L", strategy.long, qty = q, comment = typeS + "|" + lvlTagS)
         strategy.exit("Lx", "L", stop = sl, limit = tp)
         curE := close
         curSL := sl
@@ -652,7 +689,7 @@ if shortCond
     if r > 0
         tp = close - r * tpMult
         q = (strategy.equity * risk_pct / 100) / r
-        strategy.entry("S", strategy.short, qty = q, comment = typeB + "|S")
+        strategy.entry("S", strategy.short, qty = q, comment = typeB + "|" + lvlTagB)
         strategy.exit("Sx", "S", stop = sl, limit = tp)
         curE := close
         curSL := sl
@@ -682,10 +719,18 @@ var float pS2 = 0.0
 var float pS3 = 0.0
 var float pS4 = 0.0
 
+var int cFIN = 0
+var int wFIN = 0
+var float pFIN = 0.0
+var int cCNF = 0
+var int wCNF = 0
+var float pCNF = 0.0
+
 if strategy.closedtrades > nz(strategy.closedtrades[1])
     ix = strategy.closedtrades - 1
     pr = strategy.closedtrades.profit(ix)
     cm = strategy.closedtrades.entry_comment(ix)
+    // --- setup turi ---
     if str.contains(cm, "S1")
         cS1 += 1
         pS1 += pr
@@ -706,6 +751,17 @@ if strategy.closedtrades > nz(strategy.closedtrades[1])
         pS4 += pr
         if pr > 0
             wS4 += 1
+    // --- kirish darajasi ---
+    if str.contains(cm, "FINAL")
+        cFIN += 1
+        pFIN += pr
+        if pr > 0
+            wFIN += 1
+    else if str.contains(cm, "CONF")
+        cCNF += 1
+        pCNF += pr
+        if pr > 0
+            wCNF += 1
 
 // ========================================================= DASHBOARD
 var table dash = na
@@ -727,7 +783,7 @@ f_wr(int w, int c) => c > 0 ?
 
 if showDash and barstate.islast
     table.delete(dash)
-    dash := table.new(position.top_right, 2, 11, border_width = 1,
+    dash := table.new(position.top_right, 2, 15, border_width = 1,
          frame_color = color.new(color.gray, 50), frame_width = 1)
     table.cell(dash, 0, 0, "BETA 1 + LAOL", text_color = color.white,
          text_size = size.normal, bgcolor = color.new(color.blue, 35))
@@ -761,21 +817,33 @@ if showDash and barstate.islast
          strategy.closedtrades >= 50 ?
          (strategy.netprofit > 0 ? cB : cR) : color.new(color.orange, 60))
 
+    table.cell(dash, 0, 11, "KIRISH DARAJASI", text_color = color.white,
+         text_size = size.small, bgcolor = color.new(color.purple, 40))
+    table.cell(dash, 1, 11, "win/jami  WR  avgPnL", text_color = color.white,
+         text_size = size.small, bgcolor = color.new(color.purple, 40))
+    f_row(dash, 12, "FINAL (sifatli)",
+         f_wr(wFIN, cFIN) + (cFIN > 0 ? "  " + str.tostring(pFIN / cFIN, "#.#") : ""),
+         cFIN > 0 ? (pFIN > 0 ? cB : cR) : cN)
+    f_row(dash, 13, "CONFIRMED (ko'p)",
+         f_wr(wCNF, cCNF) + (cCNF > 0 ? "  " + str.tostring(pCNF / cCNF, "#.#") : ""),
+         cCNF > 0 ? (pCNF > 0 ? cB : cR) : cN)
+    f_row(dash, 14, "Rejim", entryLevel, color.new(color.purple, 60))
+
 if showDebug and barstate.islast
     table.delete(dbg)
-    dbg := table.new(position.bottom_left, 2, 8, border_width = 1,
+    dbg := table.new(position.bottom_left, 2, 9, border_width = 1,
          frame_color = color.new(color.gray, 50), frame_width = 1)
     table.cell(dbg, 0, 0, "DEBUG — nega savdo yo'q?", text_color = color.white,
          text_size = size.small, bgcolor = color.new(color.orange, 40))
     table.cell(dbg, 1, 0, "soni", text_color = color.white,
          text_size = size.small, bgcolor = color.new(color.orange, 40))
-    f_row(dbg, 1, "S1-S4 baza shakllandi", str.tostring(nBase),
+    f_row(dbg, 1, "① CONFIRMED (S1-S4 baza)", str.tostring(nBase),
          nBase > 100 ? cB : color.new(color.orange, 60))
-    f_row(dbg, 2, "  + LAOL buzildi", str.tostring(nLaol),
+    f_row(dbg, 2, "② + LAOL buzildi", str.tostring(nLaol),
          nLaol > 50 ? cB : color.new(color.orange, 60))
-    f_row(dbg, 3, "  + SCALP FU/SN retest", str.tostring(nScalp),
+    f_row(dbg, 3, "③ + SCALP retest = FINAL", str.tostring(nScalp),
          nScalp > 50 ? cB : color.new(color.orange, 60))
-    f_row(dbg, 4, "  + sessiya/guard/cooldown", str.tostring(nAll),
+    f_row(dbg, 4, "④ + sessiya/guard/cooldown", str.tostring(nAll),
          nAll >= 50 ? cB : cR)
     f_row(dbg, 5, "OCHILGAN SAVDO", str.tostring(strategy.closedtrades),
          strategy.closedtrades >= 50 ? cB : cR)
@@ -784,6 +852,10 @@ if showDebug and barstate.islast
          str.tostring(nS3) + "/" + str.tostring(nS4), cN)
     f_row(dbg, 7, "Aktiv quti / LAOL",
          str.tostring(array.size(boxes)) + " / " + str.tostring(array.size(laols)), cN)
+    f_row(dbg, 8, "FINAL filtri qoldirdi",
+         nBase > 0 ? str.tostring(nScalp * 100.0 / nBase, "#") + "%  (" +
+         str.tostring(nBase) + " -> " + str.tostring(nScalp) + ")" : "—",
+         nBase > 0 and nScalp * 100.0 / nBase < 5 ? cR : cN)
 
 // ============================================================ ALERTS
 alertcondition(longCond,  "LONG",  "BETA1 LONG")

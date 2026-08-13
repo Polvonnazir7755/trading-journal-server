@@ -134,3 +134,65 @@ Men oldin tahlil qilganimda ehtimollarni shunday baholagan edim:
 
 Ya'ni asl kodda "ishlayotgandek" ko'ringan narsa illyuziya edi.
 Bu yomon xabar emas — bu **haqiqat**, va uni bilish yaxshi.
+
+
+---
+
+# ⭐ IKKI KIRISH DARAJASI (siz payqagan narsa)
+
+Siz to'g'ri payqadingiz — asl kodda **ikki xil signal** bor:
+
+| Daraja | Shartlar | Xarakteri |
+|---|---|---|
+| `*_confirmed_triggered` | S1–S4 baza + M1 yopilishi | ko'p savdo, o'rtacha sifat |
+| `final_entry_*` | + LAOL buzilishi<br>+ SCALP FU/SN retest<br>+ 10 bar oynasi<br>+ scalp LV mos<br>+ HCS | kam savdo, yuqori sifat |
+
+Birinchi versiyamda men ularni yaxshi ajratmagan edim. **Tuzatildi.**
+
+## Endi ④ bo'limda tanlaysiz
+
+```
+Kirish darajasi:
+  ○ CONFIRMED (ko'p savdo)
+  ● FINAL (sifatli)          <- default
+  ○ IKKALASI (solishtirish)
+```
+
+**IKKALASI** rejimida ikkalasi ham savdo ochadi, lekin dashboard ularni
+**alohida hisoblaydi**:
+
+```
+KIRISH DARAJASI    win/jami  WR  avgPnL
+FINAL (sifatli)      18/47   38%   +12.4
+CONFIRMED (ko'p)     41/186  22%    -2.1
+Rejim              IKKALASI
+```
+
+Shunda bitta backtestdan **ikki javob** olasiz.
+
+## ⚠️ Statistik tuzoq — buni bilish muhim
+
+Hisoblab ko'rdim:
+
+| Daraja | WR | Savdo/yil | exp | 1 yilda isbotlash |
+|---|---|---|---|---|
+| CONFIRMED | 14% | 400 | +0.26R | **34%** |
+| FINAL | 20% | 60 | +0.80R | **30%** |
+
+**FINAL yuqori sifat bersa ham, savdo kam bo'lgani uchun uni isbotlash
+xuddi shunday qiyin.** Chunki statistik kuch faqat WR ga emas, **savdo
+soniga** ham bog'liq.
+
+Shuning uchun tavsiyam:
+1. Avval **IKKALASI** rejimida ishga tushiring
+2. FINAL filtri savdoni qanchaga kamaytirishini ko'ring (DEBUG panelda)
+3. Agar FINAL 20 tadan kam savdo bersa — uni bir yilda tekshirib bo'lmaydi
+
+## DEBUG panelda yangi qator
+
+```
+FINAL filtri qoldirdi    3%  (412 -> 12)
+```
+
+Agar 5% dan kam qolsa — qizil rangda ogohlantiradi. Bu FINAL filtri
+juda qattiq degani.
