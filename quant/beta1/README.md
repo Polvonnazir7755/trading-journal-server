@@ -299,3 +299,106 @@ Keyin RR ni 2, 3, 4 bilan alohida sinab, qaysi biri
 
 ⚠️ Faqat "eng yuqori foyda" ni tanlamang — ketma-ket zararlar
 sonini ham hisobga oling. 40 ta zarar seriyasini ko'tara olasizmi?
+
+
+---
+
+# 🔧 BIRINCHI TEST NATIJASI VA TUZATISHLAR
+
+## Sizning natijangiz (XAUUSD M1)
+
+```
+① CONFIRMED (S1-S4 baza)        957
+② + LAOL buzildi                148   <- 85% yo'qoldi
+③ + SCALP retest = FINAL         40
+④ + sessiya/guard/cooldown        2   <- 95% yo'qoldi!
+OCHILGAN SAVDO                    4
+Baza turlari S1/S2/S3/S4  157/94/0/706
+```
+
+Bundan **4 ta muammo** aniqlandi.
+
+## ❌ Xato 1: S3 = S1 bilan bir xil edi (mening xatom)
+
+```pine
+// oldin:
+bool a1 = useS1 and scalpEM > 0 and entryEM > 0 and entryRet > 0
+bool a3 = useS3 and scalpEM > 0 and entryEM > 0 and entryRet > 0   // AYNI SHU!
+```
+
+Shuning uchun **S3 = 0** chiqdi — u hech qachon ishga tushmasdi.
+
+**Tuzatildi:** S3 endi INTRA moslashuvini talab qiladi:
+```pine
+bool a3 = useS3 and intraEM > 0 and entryEM > 0 and entryRet > 0
+```
+
+## ❌ Xato 2: S4 juda ko'p (706 ta = 74%)
+
+S4 faqat `hcsM1` ni tekshirardi — hech qanday tasdiq yo'q edi.
+
+**Tuzatildi:** endi ENTRY retest ham shart:
+```pine
+bool a4 = useS4 and hcsM1 and entryRet > 0
+```
+
+Ustuvorlik ham o'zgardi: `S2 > S1 > S3 > S4` (kuchliroq setup birinchi).
+
+## ❌ Xato 3: LAOL filtri 85% yo'qotardi
+
+`laolBroke` faqat **aynan buzilgan barda** true bo'lardi. Keyingi barda
+allaqachon false — setup shakllangan bo'lsa ham signal yo'qolardi.
+
+**Tuzatildi:** yangi parametr
+```
+LAOL buzilishi amal qiladi (bar):  10
+```
+Endi LAOL buzilgandan keyin 10 bar davomida kuchda qoladi.
+
+## ❌ Xato 4: pozitsiya band → 40 dan 2 ta qoldi
+
+Eng katta yo'qotish shu yerda edi (95%).
+
+Sabab: `strategy.position_size == 0` sharti. Bitta savdo ochilsa, u
+yopilguncha barcha yangi signallar tashlab yuborilardi. M1 da TP 1:3
+ga yetish uzoq vaqt oladi.
+
+**Tuzatildi:**
+1. Yangi parametr `Pozitsiya ochiq bo'lsa ham kirish` (⑤ Risk)
+2. DEBUG panelda yangi qator:
+   ```
+   Pozitsiya band -> o'tkazib yuborildi:  38
+   ```
+
+---
+
+## ⚠️ Yana bir muhim narsa: M1 juda past
+
+Siz M1 da sinadingiz. Bu muammoli:
+
+| | M1 | M5 | M15 |
+|---|---|---|---|
+| Spred / harakat nisbati | **yomon** | o'rta | yaxshi |
+| Shovqin | **juda ko'p** | o'rta | kam |
+| TP ga yetish vaqti | uzoq | o'rta | tez |
+
+**M1 da spred harakatning katta qismini yeydi.** M5 yoki M15 da sinang.
+
+---
+
+## Keyingi test uchun sozlama
+
+```
+Grafik:               XAUUSD M5  (M1 emas!)
+Davr:                 2024.01.01 dan (Properties)
+
+④ Kirish darajasi:    IKKALASI (solishtirish)
+   LAOL amal qiladi:  10 bar
+
+⑤ Risk:
+   TP = SL × (RR):    2.0
+   Pozitsiya band...: ☑ YOQING  (savdo sonini oshirish uchun)
+   Signallar orasi:   3
+```
+
+Shu bilan savdo soni 4 dan 50+ ga chiqishi kerak.

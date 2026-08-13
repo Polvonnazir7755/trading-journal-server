@@ -70,6 +70,8 @@ useS3 = input.bool(true, "S3 — scalp forming + entry retest",  group = gSU)
 useS4 = input.bool(true, "S4 — ENTRY-1 HCS",                   group = gSU)
 needLAOLbreak = input.bool(true, "LAOL buzilishi shart",       group = gSU)
 needScalpRet  = input.bool(true, "SCALP FU/SN retest shart",   group = gSU)
+laolWindow    = input.int(10, "LAOL buzilishi amal qiladi (bar)", minval = 1, maxval = 50, group = gSU,
+     tooltip = "LAOL buzilgandan keyin necha bar davomida signal kuchda qoladi")
 
 // ----------------------------------------------------------- ⑤ RISK
 gRK = "⑤ Risk"
@@ -92,6 +94,8 @@ slMaxATR  = input.float(5.0, "SL maks (ATR)",  minval = 1.0, step = 0.5, group =
      tooltip = "Asl kodda SL 500 bar ichida cheksiz kengayardi — bu chegara")
 maxLossDay= input.int(3, "Kunlik maks zarar", minval = 1, maxval = 20, group = gRK)
 coolBars  = input.int(5, "Signallar orasi min bar", minval = 0, group = gRK)
+allowPyramid = input.bool(false, "Pozitsiya ochiq bo'lsa ham kirish", group = gRK,
+     tooltip = "Yoqilsa: bir vaqtda bir necha pozitsiya. Risk oshadi!")
 
 // ----------------------------------------------------------- ⑥ VAQT
 gTM = "⑥ Vaqt"
@@ -548,24 +552,31 @@ if array.size(laols) > 0
             if cross
                 lo.broken := true
                 lo.bbar := bar_index
-                if lo.bear
-                    laolBrokeB := true
-                else
-                    laolBrokeS := true
-        if lo.broken and (bar_index - lo.bbar) > 5
+        // OXIRGI laolWindow bar ichida buzilgan bo'lsa ham hisoblanadi
+        if lo.broken and (bar_index - lo.bbar) <= laolWindow
+            if lo.bear
+                laolBrokeB := true
+            else
+                laolBrokeS := true
+        if lo.broken and (bar_index - lo.bbar) > laolWindow + 3
             array.remove(laols, j)
 
 // ================================================== S1 – S4 SETUP
-f_base(int scalpEM, int entryEM, int entryRet, int scalpRet, bool hcsM1) =>
+f_base(int scalpEM, int entryEM, int entryRet, int scalpRet,
+       int intraEM, bool hcsM1) =>
+    // S1: SCALP EM + ENTRY EM + ENTRY retest  (asosiy)
     bool a1 = useS1 and scalpEM > 0 and entryEM > 0 and entryRet > 0
+    // S2: S1 + SCALP ham retest bo'lgan      (kuchliroq)
     bool a2 = useS2 and scalpEM > 0 and scalpRet > 0 and entryEM > 0 and entryRet > 0
-    bool a3 = useS3 and scalpEM > 0 and entryEM > 0 and entryRet > 0
-    bool a4 = useS4 and hcsM1
-    string t = a4 ? "S4" : a2 ? "S2" : a1 ? "S1" : a3 ? "S3" : ""
+    // S3: INTRA moslashuvi bor, ENTRY retest  (HTF qo'llab-quvvatlaydi)
+    bool a3 = useS3 and intraEM > 0 and entryEM > 0 and entryRet > 0
+    // S4: M1 HCS + ENTRY retest              (oldin faqat HCS edi -> 706 ta soxta)
+    bool a4 = useS4 and hcsM1 and entryRet > 0
+    string t = a2 ? "S2" : a1 ? "S1" : a3 ? "S3" : a4 ? "S4" : ""
     [a1 or a2 or a3 or a4, t]
 
-[baseB, typeB] = f_base(cntScalpEM_B, cntEntryEM_B, cntEntryRet_B, cntScalpRet_B, hcsM1_B)
-[baseS, typeS] = f_base(cntScalpEM_S, cntEntryEM_S, cntEntryRet_S, cntScalpRet_S, hcsM1_S)
+[baseB, typeB] = f_base(cntScalpEM_B, cntEntryEM_B, cntEntryRet_B, cntScalpRet_B, cntIntraEM_B, hcsM1_B)
+[baseS, typeS] = f_base(cntScalpEM_S, cntEntryEM_S, cntEntryRet_S, cntScalpRet_S, cntIntraEM_S, hcsM1_S)
 
 // INTRA moslashuvi (bonus)
 intraAlignB = cntIntraEM_B > 0
@@ -600,6 +611,8 @@ var int nS4 = 0
 rawB = baseB and barstate.isconfirmed
 rawS = baseS and barstate.isconfirmed
 
+var int nBlockPos = 0
+
 if rawB or rawS
     nBase += 1
     tt = rawB ? typeB : typeS
@@ -611,18 +624,24 @@ if rawB or rawS
         nS3 += 1
     if tt == "S4"
         nS4 += 1
-    lb = rawB ? laolBrokeB : laolBrokeS
-    if not needLAOLbreak or lb
+    // ikkala tomonni ham tekshirish
+    lb = (rawB and (not needLAOLbreak or laolBrokeB)) or
+         (rawS and (not needLAOLbreak or laolBrokeS))
+    if lb
         nLaol += 1
-        sr = rawB ? scalpFuRet_B : scalpFuRet_S
-        if not needScalpRet or sr
+        sr = (rawB and (not needScalpRet or scalpFuRet_B)) or
+             (rawS and (not needScalpRet or scalpFuRet_S))
+        if sr
             nScalp += 1
             if inSess and guardOK and coolOK
                 nAll += 1
+                if strategy.position_size != 0
+                    nBlockPos += 1
 
 // ============================================================= ENTRY
+posFree = allowPyramid or strategy.position_size == 0
 canTrade = tradingOn and inSess and guardOK and coolOK and
-     strategy.position_size == 0 and barstate.isconfirmed
+     posFree and barstate.isconfirmed
 
 // ---- BAZA (CONFIRMED darajasi): S1-S4 shakllandi ----
 confB = baseB
@@ -887,7 +906,7 @@ if showDash and barstate.islast
 
 if showDebug and barstate.islast
     table.delete(dbg)
-    dbg := table.new(position.bottom_left, 2, 9, border_width = 1,
+    dbg := table.new(position.bottom_left, 2, 10, border_width = 1,
          frame_color = color.new(color.gray, 50), frame_width = 1)
     table.cell(dbg, 0, 0, "DEBUG — nega savdo yo'q?", text_color = color.white,
          text_size = size.small, bgcolor = color.new(color.orange, 40))
@@ -908,7 +927,10 @@ if showDebug and barstate.islast
          str.tostring(nS3) + "/" + str.tostring(nS4), cN)
     f_row(dbg, 7, "Aktiv quti / LAOL",
          str.tostring(array.size(boxes)) + " / " + str.tostring(array.size(laols)), cN)
-    f_row(dbg, 8, "FINAL filtri qoldirdi",
+    f_row(dbg, 8, "Pozitsiya band -> o'tkazib yuborildi",
+         str.tostring(nBlockPos),
+         nBlockPos > nAll / 2 ? color.new(color.orange, 60) : cN)
+    f_row(dbg, 9, "FINAL filtri qoldirdi",
          nBase > 0 ? str.tostring(nScalp * 100.0 / nBase, "#") + "%  (" +
          str.tostring(nBase) + " -> " + str.tostring(nScalp) + ")" : "—",
          nBase > 0 and nScalp * 100.0 / nBase < 5 ? cR : cN)
