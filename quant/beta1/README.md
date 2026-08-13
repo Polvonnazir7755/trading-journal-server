@@ -196,3 +196,106 @@ FINAL filtri qoldirdi    3%  (412 -> 12)
 
 Agar 5% dan kam qolsa — qizil rangda ogohlantiradi. Bu FINAL filtri
 juda qattiq degani.
+
+
+---
+
+# ⭐ TP MASOFASI TUZATILDI (siz payqagan 2-muammo)
+
+## Muammo
+
+Asl kodda:
+```pine
+const int TP_MULTIPLIER = 8    // TP = SL × 8
+```
+
+Bu **1:8 RR** degani. Hisoblab ko'rdim:
+
+| RR | TP ga yetish ehtimoli | Kerakli WR |
+|---|---|---|
+| 1:2 | 33.3% | 33.3% |
+| **1:3** | **25.0%** | **25.0%** |
+| 1:4 | 20.0% | 20.0% |
+| **1:8** | **11.1%** | **11.1%** |
+
+**1:8 da 9 tadan 8 tasi SL ga uriladi.** Bu matematik jihatdan normal,
+lekin sizning past win rate'ingizning asosiy sababi shu edi.
+
+## Psixologik tomoni — undan ham muhim
+
+300 savdoda ketma-ket zararlar:
+
+| RR | Real WR | exp/savdo | Median seriya | 95% seriya |
+|---|---|---|---|---|
+| 1:2 | 36% | +0.090R | 11 | 16 |
+| **1:3** | **28%** | **+0.120R** | **14** | **22** |
+| 1:4 | 23% | +0.150R | 17 | 27 |
+| 1:8 | 14% | +0.260R | **27** | **43** |
+
+**1:8 da ketma-ket 27-43 zarar NORMAL.** Buni deyarli hech kim ko'tara olmaydi.
+
+Expectancy o'xshash, lekin **psixologiya butunlay boshqa**.
+
+## Nima o'zgardi
+
+### 1. Default RR: 8 → **3**
+
+```
+TP = SL × (RR):  3.0     ← default
+```
+
+Siz aytganingizdek 1:2, 1:3, 1:4 sinash mumkin.
+
+### 2. Qismiy chiqish (partial) qo'shildi
+
+```
+☐ Qismiy chiqish (partial)
+   1-qism hajmi %:  50
+   1-qism TP (RR):  1.5
+```
+
+Pozitsiyaning yarmi 1:1.5 da yopiladi, qolgani asosiy TP gacha ketadi.
+
+**Ta'siri:** win rate sezilarli oshadi (birinchi qism tez yopiladi),
+expectancy biroz tushishi mumkin. Psixologik jihatdan ancha yengil.
+
+### 3. Breakeven ko'chirish
+
+```
+☐ Breakeven ko'chirish
+   BE ga ko'chirish (RR):  1.0
+```
+
+Narx 1R ga yetsa — SL kirish narxiga ko'chadi. Zarar riski yo'qoladi.
+
+⚠️ **Diqqat:** BE ko'chirish WR ni oshirmaydi, lekin *zarar hajmini*
+kamaytiradi. Ba'zan narx BE ga tegib, keyin TP ga ketadi — bu "bekorga
+chiqish". Backtest bilan tekshiring.
+
+### 4. Dashboard'da RR diagnostikasi
+
+```
+RR / kutilgan WR    1:3  ->  25.0%
+Haqiqiy WR          28.4%   ✓ edge
+```
+
+- **Kutilgan WR** = `1/(1+RR)` — adolatli bozorda
+- **Haqiqiy WR** > kutilgandan bo'lsa → edge bor
+- Kam bo'lsa → edge yo'q
+
+Bu eng to'g'ridan-to'g'ri edge o'lchagichi.
+
+## Tavsiya etilgan sozlama
+
+```
+TP = SL × (RR):        3.0
+Qismiy chiqish:        ☐ (avval yoqmасdan sinang)
+Breakeven:             ☐
+Kirish darajasi:       IKKALASI
+```
+
+Keyin RR ni 2, 3, 4 bilan alohida sinab, qaysi biri
+**expectancy × chidamlilik** bo'yicha yaxshi ekanini toping.
+
+⚠️ Faqat "eng yuqori foyda" ni tanlamang — ketma-ket zararlar
+sonini ham hisobga oling. 40 ta zarar seriyasini ko'tara olasizmi?

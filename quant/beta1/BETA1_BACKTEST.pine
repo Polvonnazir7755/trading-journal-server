@@ -74,7 +74,17 @@ needScalpRet  = input.bool(true, "SCALP FU/SN retest shart",   group = gSU)
 // ----------------------------------------------------------- ⑤ RISK
 gRK = "⑤ Risk"
 risk_pct  = input.float(0.5, "Risk %", minval = 0.1, step = 0.1, group = gRK)
-tpMult    = input.float(8.0, "TP = SL × ", minval = 1.0, step = 0.5, group = gRK)
+tpMult    = input.float(3.0, "TP = SL × (RR)", minval = 0.5, step = 0.5, group = gRK,
+     tooltip = "1:8 da TP ga yetish ehtimoli atigi 11% — WR shuning uchun past edi.\n1:2-1:4 tavsiya qilinadi.")
+
+usePartial = input.bool(false, "Qismiy chiqish (partial)", group = gRK,
+     tooltip = "Pozitsiyaning bir qismini yaqinroq TP da yopadi — WR oshadi")
+p1Pct     = input.int(50, "1-qism hajmi %", minval = 10, maxval = 90, group = gRK)
+p1RR      = input.float(1.5, "1-qism TP (RR)", minval = 0.5, step = 0.5, group = gRK)
+
+useBE     = input.bool(false, "Breakeven ko'chirish", group = gRK,
+     tooltip = "Narx belgilangan RR ga yetsa, SL ni kirish narxiga ko'chiradi")
+beAtRR    = input.float(1.0, "BE ga ko'chirish (RR)", minval = 0.3, step = 0.1, group = gRK)
 slMode    = input.string("Signal shami", "SL joyi",
      options = ["Signal shami", "Swing", "Kengaytirilgan"], group = gRK)
 slBufATR  = input.float(0.2, "SL bufer (ATR)", minval = 0.0, step = 0.1, group = gRK)
@@ -654,7 +664,9 @@ lvlTagS = longFinal  ? "FINAL" : "CONF"
 var float curE = na
 var float curSL = na
 var float curTP = na
+var float curR = na
 var string curDir = ""
+var bool beDone = false
 
 lo10 = ta.lowest(low, 10)
 hi10 = ta.highest(high, 10)
@@ -676,11 +688,18 @@ if longCond
         tp = close + r * tpMult
         q = (strategy.equity * risk_pct / 100) / r
         strategy.entry("L", strategy.long, qty = q, comment = typeS + "|" + lvlTagS)
-        strategy.exit("Lx", "L", stop = sl, limit = tp)
+        if usePartial
+            strategy.exit("L-p1", "L", qty_percent = p1Pct,
+                 stop = sl, limit = close + r * p1RR)
+            strategy.exit("L-p2", "L", stop = sl, limit = tp)
+        else
+            strategy.exit("Lx", "L", stop = sl, limit = tp)
         curE := close
         curSL := sl
         curTP := tp
+        curR := r
         curDir := "LONG"
+        beDone := false
         lastSigBar := bar_index
 
 if shortCond
@@ -690,12 +709,36 @@ if shortCond
         tp = close - r * tpMult
         q = (strategy.equity * risk_pct / 100) / r
         strategy.entry("S", strategy.short, qty = q, comment = typeB + "|" + lvlTagB)
-        strategy.exit("Sx", "S", stop = sl, limit = tp)
+        if usePartial
+            strategy.exit("S-p1", "S", qty_percent = p1Pct,
+                 stop = sl, limit = close - r * p1RR)
+            strategy.exit("S-p2", "S", stop = sl, limit = tp)
+        else
+            strategy.exit("Sx", "S", stop = sl, limit = tp)
         curE := close
         curSL := sl
         curTP := tp
+        curR := r
         curDir := "SHORT"
+        beDone := false
         lastSigBar := bar_index
+
+// ---- BREAKEVEN ko'chirish ----
+if useBE and strategy.position_size != 0 and not beDone and not na(curR)
+    if curDir == "LONG" and high >= curE + curR * beAtRR
+        beDone := true
+        curSL := curE
+        if usePartial
+            strategy.exit("L-p2", "L", stop = curE, limit = curTP)
+        else
+            strategy.exit("Lx", "L", stop = curE, limit = curTP)
+    if curDir == "SHORT" and low <= curE - curR * beAtRR
+        beDone := true
+        curSL := curE
+        if usePartial
+            strategy.exit("S-p2", "S", stop = curE, limit = curTP)
+        else
+            strategy.exit("Sx", "S", stop = curE, limit = curTP)
 
 inPos = strategy.position_size != 0
 plot(showLevels and inPos ? curE  : na, "Entry", color.new(color.blue, 0), 2, plot.style_linebr)
@@ -783,7 +826,7 @@ f_wr(int w, int c) => c > 0 ?
 
 if showDash and barstate.islast
     table.delete(dash)
-    dash := table.new(position.top_right, 2, 15, border_width = 1,
+    dash := table.new(position.top_right, 2, 17, border_width = 1,
          frame_color = color.new(color.gray, 50), frame_width = 1)
     table.cell(dash, 0, 0, "BETA 1 + LAOL", text_color = color.white,
          text_size = size.normal, bgcolor = color.new(color.blue, 35))
@@ -828,6 +871,19 @@ if showDash and barstate.islast
          f_wr(wCNF, cCNF) + (cCNF > 0 ? "  " + str.tostring(pCNF / cCNF, "#.#") : ""),
          cCNF > 0 ? (pCNF > 0 ? cB : cR) : cN)
     f_row(dash, 14, "Rejim", entryLevel, color.new(color.purple, 60))
+
+    theoWR = 100.0 / (1.0 + tpMult)
+    actWR = strategy.closedtrades > 0 ?
+         strategy.wintrades * 100.0 / strategy.closedtrades : 0
+    f_row(dash, 15, "RR / kutilgan WR",
+         "1:" + str.tostring(tpMult, "#.#") + "  ->  " +
+         str.tostring(theoWR, "#.#") + "%",
+         tpMult > 5 ? color.new(color.orange, 60) : cN)
+    f_row(dash, 16, "Haqiqiy WR",
+         str.tostring(actWR, "#.#") + "%" +
+         (strategy.closedtrades > 20 ?
+          (actWR > theoWR ? "  ✓ edge" : "  ✗ edge yo'q") : "  (n kam)"),
+         strategy.closedtrades > 20 ? (actWR > theoWR ? cB : cR) : cN)
 
 if showDebug and barstate.islast
     table.delete(dbg)
