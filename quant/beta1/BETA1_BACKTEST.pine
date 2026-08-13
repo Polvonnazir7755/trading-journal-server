@@ -14,7 +14,7 @@
 //  Mantiq ASL KODDAN ko'chirilgan: FU, SN, X3, LAOL, HCS, TBE, S1-S4
 // ==============================================================
 strategy("BETA 1 + LAOL — Backtest", overlay = true,
-     initial_capital         = 10000,
+     initial_capital         = 1000,
      default_qty_type        = strategy.percent_of_equity,
      default_qty_value       = 100,
      commission_type         = strategy.commission.cash_per_order,
@@ -73,9 +73,24 @@ needScalpRet  = input.bool(true, "SCALP FU/SN retest shart",   group = gSU)
 laolWindow    = input.int(10, "LAOL buzilishi amal qiladi (bar)", minval = 1, maxval = 50, group = gSU,
      tooltip = "LAOL buzilgandan keyin necha bar davomida signal kuchda qoladi")
 
+// --- WIN RATE oshirish filtrlari ---
+gWR = "⑤ Win rate filtrlari"
+needMTFalign = input.bool(false, "HTF trend bilan bir yo'nalishda", group = gWR,
+     tooltip = "INTRA (30m-1h) trendiga qarshi savdo qilmaydi.\nWR oshadi, savdo kamayadi.")
+needPDzone   = input.bool(false, "Faqat discount(L) / premium(S)", group = gWR,
+     tooltip = "Long faqat pastki yarmida, short faqat yuqori yarmida")
+minSetupCnt  = input.int(1, "Min tasdiq soni (S+INTRA+LAOL)", minval = 1, maxval = 4, group = gWR,
+     tooltip = "Nechta mustaqil tasdiq bo'lsa savdo ochiladi.\n2-3 = kamroq lekin sifatliroq")
+avoidRange   = input.bool(false, "Range (yon harakat) da savdo qilmaslik", group = gWR,
+     tooltip = "ATR past bo'lsa savdo qilmaydi")
+rangeATRmult = input.float(0.7, "Range chegarasi (ATR nisbati)", minval = 0.3, step = 0.1, group = gWR)
+
 // ----------------------------------------------------------- ⑤ RISK
 gRK = "⑤ Risk"
-risk_pct  = input.float(0.5, "Risk %", minval = 0.1, step = 0.1, group = gRK)
+riskMode  = input.string("Foiz %", "Risk turi", options = ["Foiz %", "Dollar $"], group = gRK)
+risk_pct  = input.float(1.0, "Risk %", minval = 0.1, step = 0.1, group = gRK)
+risk_usd  = input.float(20.0, "Risk $ (Dollar rejimida)", minval = 1.0, step = 5.0, group = gRK,
+     tooltip = "$1000 hisobda: $10=1%, $20=2%, $50=5%\nOGOHLANTIRISH: 5% da 200 savdoda DD 73% ga chiqadi!")
 tpMult    = input.float(3.0, "TP = SL × (RR)", minval = 0.5, step = 0.5, group = gRK,
      tooltip = "1:8 da TP ga yetish ehtimoli atigi 11% — WR shuning uchun past edi.\n1:2-1:4 tavsiya qilinadi.")
 
@@ -563,6 +578,22 @@ if array.size(laols) > 0
         if lo.broken and (bar_index - lo.bbar) > laolWindow + 3
             array.remove(laols, j)
 
+// ============================================ WIN RATE FILTRLARI
+// HTF trend: INTRA (i3) yo'nalishi
+htfBull = not na(d9.c) and not na(d9.c1) and d9.c > d9.c1
+htfBear = not na(d9.c) and not na(d9.c1) and d9.c < d9.c1
+
+// P&D: oxirgi 50 bar diapazoni
+pdHi = ta.highest(high, 50)
+pdLo = ta.lowest(low, 50)
+pdPos = (pdHi - pdLo) > 0 ? (close - pdLo) / (pdHi - pdLo) : 0.5
+inDisc = pdPos < 0.5
+inPrem = pdPos > 0.5
+
+// Range aniqlash: joriy ATR o'rtachadan past
+atrAvg = ta.sma(atr, 50)
+isRange = avoidRange and not na(atrAvg) and atr < atrAvg * rangeATRmult
+
 // ================================================== S1 – S4 SETUP
 f_base(int scalpEM, int entryEM, int entryRet, int scalpRet,
        int intraEM, bool hcsM1) =>
@@ -675,16 +706,28 @@ okLaolS  = not needLAOLbreak or laolBrokeS
 okScalpB = not needScalpRet  or scalpFuRet_B
 okScalpS = not needScalpRet  or scalpFuRet_S
 
-finalB = inWinB and okLaolB and okScalpB
-finalS = inWinS and okLaolS and okScalpS
+// --- tasdiqlar sonini hisoblash ---
+confCntB = (baseB ? 1 : 0) + (cntIntraEM_B > 0 ? 1 : 0) +
+     (laolBrokeB ? 1 : 0) + (scalpFuRet_B ? 1 : 0)
+confCntS = (baseS ? 1 : 0) + (cntIntraEM_S > 0 ? 1 : 0) +
+     (laolBrokeS ? 1 : 0) + (scalpFuRet_S ? 1 : 0)
+
+// --- WR filtrlari ---
+wrOKb = (not needMTFalign or htfBear) and (not needPDzone or inPrem) and
+     confCntB >= minSetupCnt and not isRange
+wrOKs = (not needMTFalign or htfBull) and (not needPDzone or inDisc) and
+     confCntS >= minSetupCnt and not isRange
+
+finalB = inWinB and okLaolB and okScalpB and wrOKb
+finalS = inWinS and okLaolS and okScalpS and wrOKs
 
 // ---- yakuniy shartlar ----
 // FINAL ustunlikka ega: agar ikkalasi yoqilgan bo'lsa va FINAL bajarilsa,
 // savdo FINAL sifatida belgilanadi
 shortFinal = canTrade and useFINAL and finalB
 longFinal  = canTrade and useFINAL and finalS
-shortConf  = canTrade and useCONF  and confB and not shortFinal
-longConf   = canTrade and useCONF  and confS and not longFinal
+shortConf  = canTrade and useCONF  and confB and wrOKb and not shortFinal
+longConf   = canTrade and useCONF  and confS and wrOKs and not longFinal
 
 shortCond = shortFinal or shortConf
 longCond  = longFinal or longConf
@@ -717,7 +760,8 @@ if longCond
     r = close - sl
     if r > 0
         tp = close + r * tpMult
-        q = (strategy.equity * risk_pct / 100) / r
+        rAmt = riskMode == "Dollar $" ? risk_usd : strategy.equity * risk_pct / 100
+        q = rAmt / r
         strategy.entry("L", strategy.long, qty = q, comment = typeS + "|" + lvlTagS)
         if usePartial
             strategy.exit("L-p1", "L", qty_percent = p1Pct,
@@ -738,7 +782,8 @@ if shortCond
     r = sl - close
     if r > 0
         tp = close - r * tpMult
-        q = (strategy.equity * risk_pct / 100) / r
+        rAmt = riskMode == "Dollar $" ? risk_usd : strategy.equity * risk_pct / 100
+        q = rAmt / r
         strategy.entry("S", strategy.short, qty = q, comment = typeB + "|" + lvlTagB)
         if usePartial
             strategy.exit("S-p1", "S", qty_percent = p1Pct,
@@ -857,7 +902,7 @@ f_wr(int w, int c) => c > 0 ?
 
 if showDash and barstate.islast
     table.delete(dash)
-    dash := table.new(position.top_right, 2, 17, border_width = 1,
+    dash := table.new(position.top_right, 2, 18, border_width = 1,
          frame_color = color.new(color.gray, 50), frame_width = 1)
     table.cell(dash, 0, 0, "BETA 1 + LAOL", text_color = color.white,
          text_size = size.normal, bgcolor = color.new(color.blue, 35))
@@ -910,7 +955,12 @@ if showDash and barstate.islast
          "1:" + str.tostring(tpMult, "#.#") + "  ->  " +
          str.tostring(theoWR, "#.#") + "%",
          tpMult > 5 ? color.new(color.orange, 60) : cN)
-    f_row(dash, 16, "Haqiqiy WR",
+    f_row(dash, 16, "WR filtrlari",
+         (needMTFalign ? "HTF " : "") + (needPDzone ? "P&D " : "") +
+         (avoidRange ? "noRange " : "") + "min" + str.tostring(minSetupCnt) +
+         "  (tasdiq: " + str.tostring(math.max(confCntB, confCntS)) + ")",
+         cN)
+    f_row(dash, 17, "Haqiqiy WR",
          str.tostring(actWR, "#.#") + "%" +
          (strategy.closedtrades > 20 ?
           (actWR > theoWR ? "  ✓ edge" : "  ✗ edge yo'q") : "  (n kam)"),

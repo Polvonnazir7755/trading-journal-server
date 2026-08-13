@@ -512,3 +512,116 @@ Kutilgan natija: **50–200 savdo**.
 
 Agar shunda ham savdo kam bo'lsa — DEBUG panelning yangi qatorlari
 qaysi filtr to'sayotganini aniq aytadi.
+
+
+---
+
+# 💰 BALANS $1000 + RISK SOZLAMALARI
+
+## O'zgardi
+
+```pine
+initial_capital = 1000    // 10000 dan
+```
+
+Yangi risk rejimi (⑤ Risk):
+```
+Risk turi:   ○ Foiz %    ● Dollar $
+Risk %:      1.0
+Risk $:      20.0
+```
+
+**Dollar rejimida** har savdoda aynan $20 (yoki siz belgilagan) tavakkal
+qilinadi — hisob o'sganda ham o'zgarmaydi.
+
+## ⚠️ Risk haqida ogohlantirish
+
+$1000 hisobda:
+
+| Risk | Foiz | Baho |
+|---|---|---|
+| $5 | 0.5% | Photon tavsiyasi |
+| $10-20 | 1-2% | professional standart |
+| **$20** | **2%** | **chegara** |
+| $30 | 3% | agressiv |
+| $50 | 5% | **juda xavfli** |
+
+**200 savdo, yaxshi strategiya (WR 40%, RR 1:2):**
+
+| Risk | Median | 5% yomon | **DD 95%** | Ruin |
+|---|---|---|---|---|
+| $5 | $1215 | $1030 | 11% | 0% |
+| $20 | $2041 | $1061 | **38%** | 0% |
+| $30 | $2736 | $1031 | **53%** | 0.1% |
+| $50 | $4348 | $867 | **73%** | 1.7% |
+
+**Agar strategiya yomon bo'lsa (WR 30%):**
+
+| Risk | Median | 70% yo'qotish ehtimoli |
+|---|---|---|
+| $5 | $901 | 0% |
+| $20 | $622 | 4% |
+| **$50** | **$297** | **72%** |
+
+**Biz hali edge bor-yo'qligini bilmaymiz** (3 ta savdo!).
+Shuning uchun: **$10-20 dan boshlang**, edge tasdiqlangach oshiring.
+
+---
+
+# 📈 WIN RATE OSHIRISH — yangi filtrlar
+
+Yangi bo'lim: **⑤ Win rate filtrlari**
+
+| Filtr | Nima qiladi | WR ta'siri |
+|---|---|---|
+| **HTF trend bilan bir yo'nalishda** | INTRA trendiga qarshi savdo qilmaydi | +5-10% |
+| **Faqat discount/premium** | Long pastda, short yuqorida | +3-7% |
+| **Min tasdiq soni** | 2-3 mustaqil tasdiq talab qiladi | +5-15% |
+| **Range da savdo qilmaslik** | ATR past bo'lsa to'xtaydi | +3-8% |
+
+Dashboard'da ko'rinadi:
+```
+WR filtrlari    HTF P&D noRange min2  (tasdiq: 3)
+```
+
+## ⚠️ MUHIM HAQIQAT: WR ≠ FOYDA
+
+| Usul | WR | exp/savdo |
+|---|---|---|
+| RR 1:2 (hozirgi) | 40% | **+0.200** |
+| RR 1:1 ga tushirish | 55% | +0.100 |
+| Qismiy chiqish 50% @1R | 58% | **+0.392** |
+| Faqat eng yaxshi setup | 48% | **+0.440** |
+
+**RR 1:1 ga tushirsangiz WR 55% bo'ladi, lekin foyda 2 barobar kamayadi.**
+
+Eng yaxshi ikkitasi:
+1. **Qismiy chiqish** — WR 58%, exp +0.392
+2. **Sifat filtrlari** — WR 48%, exp +0.440
+
+Ikkalasi ham WR **va** foydani oshiradi. RR pasaytirish — yo'q.
+
+---
+
+## Tavsiya etilgan sozlama
+
+```
+⑤ Risk:
+   Risk turi:        Dollar $
+   Risk $:           20        (2% — chegarada)
+   TP = SL × (RR):   2.0
+   ☑ Qismiy chiqish
+      1-qism hajmi:  50%
+      1-qism TP:     1.0
+
+⑤ Win rate filtrlari:
+   ☑ HTF trend bilan bir yo'nalishda
+   ☐ Faqat discount/premium
+   Min tasdiq:       2
+   ☐ Range da savdo qilmaslik
+
+⑥ Vaqt:  ☐ Sessiya filtri
+```
+
+Filtrlarni **bittadan** yoqing va har safar natijani yozib boring.
+Hammasini birdan yoqsangiz — savdo 0 ga tushadi.
