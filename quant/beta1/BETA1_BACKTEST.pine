@@ -92,7 +92,9 @@ slMode    = input.string("Signal shami", "SL joyi",
 slBufATR  = input.float(0.2, "SL bufer (ATR)", minval = 0.0, step = 0.1, group = gRK)
 slMaxATR  = input.float(5.0, "SL maks (ATR)",  minval = 1.0, step = 0.5, group = gRK,
      tooltip = "Asl kodda SL 500 bar ichida cheksiz kengayardi — bu chegara")
-maxLossDay= input.int(3, "Kunlik maks zarar", minval = 1, maxval = 20, group = gRK)
+useDayGuard = input.bool(false, "Kunlik zarar limiti", group = gRK,
+     tooltip = "Backtestda O'CHIQ tavsiya qilinadi — statistika to'plash uchun.\nJonli savdoda YOQING.")
+maxLossDay= input.int(3, "Kunlik maks zarar", minval = 1, maxval = 50, group = gRK)
 coolBars  = input.int(5, "Signallar orasi min bar", minval = 0, group = gRK)
 allowPyramid = input.bool(false, "Pozitsiya ochiq bo'lsa ham kirish", group = gRK,
      tooltip = "Yoqilsa: bir vaqtda bir necha pozitsiya. Risk oshadi!")
@@ -593,7 +595,7 @@ if dayofmonth != lastDay
 if strategy.closedtrades > nz(strategy.closedtrades[1])
     if strategy.closedtrades.profit(strategy.closedtrades - 1) < 0
         lossToday += 1
-guardOK = lossToday < maxLossDay
+guardOK = not useDayGuard or lossToday < maxLossDay
 
 var int lastSigBar = na
 coolOK = na(lastSigBar) or (bar_index - lastSigBar) >= coolBars
@@ -612,6 +614,10 @@ rawB = baseB and barstate.isconfirmed
 rawS = baseS and barstate.isconfirmed
 
 var int nBlockPos = 0
+var int nBlkSess = 0
+var int nBlkGuard = 0
+var int nBlkCool = 0
+posFree0 = allowPyramid or strategy.position_size == 0
 
 if rawB or rawS
     nBase += 1
@@ -633,10 +639,16 @@ if rawB or rawS
              (rawS and (not needScalpRet or scalpFuRet_S))
         if sr
             nScalp += 1
-            if inSess and guardOK and coolOK
+            if not inSess
+                nBlkSess += 1
+            else if not guardOK
+                nBlkGuard += 1
+            else if not coolOK
+                nBlkCool += 1
+            else if not posFree0
+                nBlockPos += 1
+            else
                 nAll += 1
-                if strategy.position_size != 0
-                    nBlockPos += 1
 
 // ============================================================= ENTRY
 posFree = allowPyramid or strategy.position_size == 0
@@ -906,7 +918,7 @@ if showDash and barstate.islast
 
 if showDebug and barstate.islast
     table.delete(dbg)
-    dbg := table.new(position.bottom_left, 2, 10, border_width = 1,
+    dbg := table.new(position.bottom_left, 2, 13, border_width = 1,
          frame_color = color.new(color.gray, 50), frame_width = 1)
     table.cell(dbg, 0, 0, "DEBUG — nega savdo yo'q?", text_color = color.white,
          text_size = size.small, bgcolor = color.new(color.orange, 40))
@@ -918,19 +930,24 @@ if showDebug and barstate.islast
          nLaol > 50 ? cB : color.new(color.orange, 60))
     f_row(dbg, 3, "③ + SCALP retest = FINAL", str.tostring(nScalp),
          nScalp > 50 ? cB : color.new(color.orange, 60))
-    f_row(dbg, 4, "④ + sessiya/guard/cooldown", str.tostring(nAll),
+    f_row(dbg, 4, "④ O'TDI (savdo ochilishi mumkin)", str.tostring(nAll),
          nAll >= 50 ? cB : cR)
-    f_row(dbg, 5, "OCHILGAN SAVDO", str.tostring(strategy.closedtrades),
+    f_row(dbg, 5, "   ✗ sessiya to'sdi", str.tostring(nBlkSess),
+         nBlkSess > 0 ? color.new(color.orange, 60) : cN)
+    f_row(dbg, 6, "   ✗ kunlik limit to'sdi", str.tostring(nBlkGuard),
+         nBlkGuard > 50 ? cR : cN)
+    f_row(dbg, 7, "   ✗ cooldown to'sdi", str.tostring(nBlkCool),
+         nBlkCool > 50 ? cR : cN)
+    f_row(dbg, 8, "   ✗ pozitsiya band", str.tostring(nBlockPos),
+         nBlockPos > 50 ? cR : cN)
+    f_row(dbg, 9, "OCHILGAN SAVDO", str.tostring(strategy.closedtrades),
          strategy.closedtrades >= 50 ? cB : cR)
-    f_row(dbg, 6, "Baza turlari S1/S2/S3/S4",
+    f_row(dbg, 10, "Baza turlari S1/S2/S3/S4",
          str.tostring(nS1) + "/" + str.tostring(nS2) + "/" +
          str.tostring(nS3) + "/" + str.tostring(nS4), cN)
-    f_row(dbg, 7, "Aktiv quti / LAOL",
+    f_row(dbg, 11, "Aktiv quti / LAOL",
          str.tostring(array.size(boxes)) + " / " + str.tostring(array.size(laols)), cN)
-    f_row(dbg, 8, "Pozitsiya band -> o'tkazib yuborildi",
-         str.tostring(nBlockPos),
-         nBlockPos > nAll / 2 ? color.new(color.orange, 60) : cN)
-    f_row(dbg, 9, "FINAL filtri qoldirdi",
+    f_row(dbg, 12, "FINAL filtri qoldirdi",
          nBase > 0 ? str.tostring(nScalp * 100.0 / nBase, "#") + "%  (" +
          str.tostring(nBase) + " -> " + str.tostring(nScalp) + ")" : "—",
          nBase > 0 and nScalp * 100.0 / nBase < 5 ? cR : cN)

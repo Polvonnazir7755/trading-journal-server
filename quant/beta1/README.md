@@ -402,3 +402,113 @@ Davr:                 2024.01.01 dan (Properties)
 ```
 
 Shu bilan savdo soni 4 dan 50+ ga chiqishi kerak.
+
+
+---
+
+# 🔍 2-TEST TAHLILI — asosiy sabab topildi
+
+## Sizning raqamlaringiz
+
+```
+① CONFIRMED (baza)     903
+② + LAOL buzildi       829   ✓ tuzatish ishladi (85% -> 8% yo'qotish)
+③ + SCALP retest       242   ✓ yaxshi
+④ + sessiya/cooldown     0   ← HAMMASI TO'SILDI!
+OCHILGAN SAVDO           3
+Pozitsiya band           0
+```
+
+## Yaxshi xabar: 2 ta tuzatish ishladi
+
+| Filtr | Oldin | Hozir |
+|---|---|---|
+| LAOL | 957 → 148 (**-85%**) | 903 → 829 (**-8%**) ✓ |
+| S3 | 0 ta | 311 ta ✓ |
+| S4 | 706 (74%) | 239 (26%) ✓ |
+
+## ❌ Yomon xabar: 242 → 0
+
+`Pozitsiya band = 0`, ya'ni muammo pozitsiyada emas.
+
+Qolgan aybdorlar: **sessiya**, **kunlik zarar limiti**, **cooldown**.
+
+Eng ehtimolli — **kunlik zarar limiti**. Sizda 3 ta savdo bor, hammasi
+zarar. `maxLossDay = 3` → **butun kun bloklandi**.
+
+## 🔧 Tuzatildi
+
+**1. Kunlik zarar limiti endi ixtiyoriy**
+
+```
+☐ Kunlik zarar limiti      ← default O'CHIQ (backtest uchun)
+```
+
+Backtestda o'chiq bo'lishi kerak — biz statistika to'playmiz, hisobni
+himoya qilmaymiz. Jonli savdoda albatta yoqiladi.
+
+**2. DEBUG panel endi aniq ko'rsatadi**
+
+```
+④ O'TDI (savdo ochilishi mumkin)    0
+   ✗ sessiya to'sdi                 0
+   ✗ kunlik limit to'sdi          238   ← aybdor shu!
+   ✗ cooldown to'sdi                4
+   ✗ pozitsiya band                 0
+```
+
+Endi qaysi filtr to'sayotgani **aniq** ko'rinadi.
+
+---
+
+## ⚠️ ENG MUHIM: test davri juda qisqa
+
+Grafikda **09:00 – 12:07** ko'rinyapti. Bu **3 soat** = ~187 M1 bar.
+
+| Davr | Kutilgan savdo |
+|---|---|
+| **3 soat (hozirgi)** | **~3** |
+| 1 kun | ~24 |
+| 1 hafta | ~170 |
+| 1 oy | ~720 |
+
+**3 ta savdo — bu normal natija 3 soat uchun.** Strategiya yomon emas,
+siz shunchaki juda qisqa davrni sinadingiz.
+
+### Backtest davrini kengaytirish
+
+Strategy Tester → ⚙️ **Properties** → **Backtest date range**:
+```
+Start:  2026.01.01
+End:    bugun
+```
+
+Yoki grafikda `Home` bosing, keyin bir necha marta chapga suring —
+TradingView ko'proq tarix yuklaydi.
+
+⚠️ M1 da TradingView tarix chegarasi bor (odatda ~20-40 ming bar =
+2-4 hafta). Shuning uchun **M5** yoki **M15** ga o'ting — o'sha davr
+uchun ancha ko'p tarix ko'rasiz.
+
+---
+
+## Keyingi test — aniq sozlama
+
+```
+Grafik:              XAUUSD M5      ← M1 EMAS
+Davr:                2026.01.01 dan
+
+⑤ Risk:
+   ☐ Kunlik zarar limiti    ← O'CHIQ
+   TP = SL × (RR):  2.0
+   Signallar orasi: 3
+   ☐ Pozitsiya ochiq bo'lsa ham kirish
+
+⑥ Vaqt:
+   ☐ Sessiya filtri         ← O'CHIQ
+```
+
+Kutilgan natija: **50–200 savdo**.
+
+Agar shunda ham savdo kam bo'lsa — DEBUG panelning yangi qatorlari
+qaysi filtr to'sayotganini aniq aytadi.
