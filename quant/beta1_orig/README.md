@@ -372,3 +372,149 @@ Net profit tushishi **normal**. Muhimi — **Recovery factor** (Net/MaxDD).
 
 Chunki 57% drawdown'ga hech kim chiday olmaydi. Foyda kamaysa ham,
 chidasa bo'ladigan strategiya ming marta yaxshi.
+
+
+---
+
+# 📡 RADAR — "yo'lni yorituvchi fanar"
+
+Sizning g'oyangiz. **Juda yaxshi fikr** — va men uni jiddiy deb hisoblayman.
+
+## Nega bu mantiqiy
+
+Savol: **nega narx 6R da qaytdi?**
+
+Uch ehtimol:
+1. O'sha yerda qarama-qarshi zona bor edi (OB/FVG)
+2. O'sha yerda yechilmagan likvidlik bor edi (LAOL/EQH/EQL)
+3. Tasodif
+
+**Agar 1 yoki 2 bo'lsa — buni OLDINDAN bilish mumkin edi.** Chunki bu
+zonalar savdo ochilishidan **oldin** grafikda mavjud.
+
+---
+
+## ⚠️ Lekin bitta tuzatish
+
+Siz "SL ni surib boramiz" dedingiz. Men buni **eng kuchsiz** variant deb
+hisoblayman. Mana nega:
+
+| Rejim | Nima qiladi | Qachon ishlaydi |
+|---|---|---|
+| **Dinamik TP** | TP ni to'siqdan **oldin** qo'yadi | savdo **ochilishida** |
+| Kirish filtri | to'siq yaqin bo'lsa **kirmaydi** | savdo ochilishida |
+| Adaptiv SL | xavf yaqinlashsa SL ni BE ga suradi | narx **borgandan keyin** |
+
+**Sizning misolingizda (6R ga borib qaytdi):**
+
+- **Adaptiv SL:** narx 6R ga borgach SL suriladi → siz **+5R** olasiz
+- **Dinamik TP:** TP 5.7R ga qo'yiladi → narx 6R ga borganda **TP olingan**
+
+Ikkinchisi yaxshiroq, chunki u **oldindan** ishlaydi va kafolatlangan.
+
+**Shuning uchun default: "Dinamik TP".**
+
+---
+
+## TP masofasi va yetish ehtimoli
+
+Sizning ma'lumotingizdan hisoblangan:
+
+| TP | Yetish % | exp (R) |
+|---|---|---|
+| 2R | 65.8% | +0.97 |
+| 3R | 53.3% | +1.13 |
+| **4R** | **43.2%** | **+1.16** ⭐ |
+| 5R | 35.1% | +1.10 |
+| 6R | 28.4% | +0.99 |
+| **8R (hozirgi)** | **18.7%** | **+0.68** |
+
+**Diqqat:** 8R eng yomon expectancy beradi. 3-5R optimal zona.
+
+Dinamik TP aynan shuni qiladi — to'siq uzoq bo'lsa 8R, yaqin bo'lsa 4R.
+
+---
+
+## Yangi bo'lim: RADAR
+
+```
+☐ Radarni yoqish
+   Radar rejimi:              Dinamik TP  ← default
+   ☑ Qarama-qarshi OB/FVG
+   ☑ Yechilmagan likvidlik (LAOL)
+   ☑ HCS zonalar
+   To'siq buferi (R):         0.15
+   Minimal TP (R):            1.5
+   Kirish filtri: min yo'l:   2.0
+```
+
+### Nima qiladi
+
+**Dinamik TP:**
+```
+Savdo ochildi, TP = 8R
+Radar: 5.5R da qarama-qarshi OB bor
+→ TP 5.35R ga ko'chadi (bufer 0.15R)
+```
+
+**Kirish filtri:**
+```
+Radar: 1.2R da to'siq bor
+Chegara: 2.0R
+→ SAVDOGA KIRILMAYDI
+```
+
+**Adaptiv SL:**
+```
+Narx harakatda, to'siqqa 0.5R qoldi
+→ SL breakeven'ga suriladi
+```
+
+### Grafikda
+
+To'q sariq punktir chiziq — eng yaqin to'siq.
+
+Dashboard'da:
+```
+Radar    Dinamik TP  (bloklandi: 12)
+```
+
+---
+
+## ⚠️ Ogohlantirish: parametrlar soni
+
+Radar **6 ta yangi parametr** qo'shadi:
+
+| Parametr | Soni |
+|---|---|
+| Skanerlash masofasi | 1 |
+| To'siq buferi | 1 |
+| Xavf chegarasi | 1 |
+| Qaysi zonalar | 2 |
+| Minimal TP | 1 |
+
+Har yangi parametr — yangi **overfitting** imkoniyati.
+
+**Shuning uchun bittadan sinang:**
+
+| # | Sozlama | Return | Max DD | Recovery |
+|---|---|---|---|---|
+| 1 | Radar o'chiq (asl) | 49.5% | 41.1% | 1.21 |
+| 2 | Radar: Dinamik TP | ? | ? | ? |
+| 3 | Radar: Kirish filtri | ? | ? | ? |
+| 4 | Radar: Adaptiv SL | ? | ? | ? |
+| 5 | Radar: Hammasi | ? | ? | ? |
+
+Har birini alohida yozib boring. Agar faqat bitta kombinatsiya yaxshi
+chiqsa — bu overfitting belgisi.
+
+---
+
+## Halol prognoz
+
+Menimcha:
+- **Dinamik TP** — eng ehtimolli foydali (~60%)
+- **Kirish filtri** — savdoni juda kamaytirishi mumkin (~30%)
+- **Adaptiv SL** — kam ta'sir (~20%)
+
+Lekin men xato bo'lishim mumkin. **Backtest aytadi.**

@@ -41,6 +41,22 @@ slipTick = input.int(2, "Slippage (tick)", minval = 0, group = gTR)
 useTP40  = input.bool(false, "TP = 40 pip (8R o'rniga)", group = gTR,
      tooltip = "Asl kodda ikkala target ham chiziladi. Qaysi biri asosiy - tanlang.")
 
+gRD = "RADAR — yo'ldagi to'siqlar (asl mantiqqa tegmaydi)"
+useRadar   = input.bool(false, "Radarni yoqish", group = gRD,
+     tooltip = "TP yo'lidagi qarama-qarshi zonalarni va yechilmagan likvidlikni topadi")
+radarMode  = input.string("Dinamik TP", "Radar rejimi",
+     options = ["Dinamik TP", "Kirish filtri", "Adaptiv SL", "Hammasi"], group = gRD,
+     tooltip = "Dinamik TP  = TP ni to'siqdan oldin qo'yadi (TAVSIYA)\nKirish filtri = to'siq yaqin bo'lsa kirmaydi\nAdaptiv SL  = xavf yaqinlashsa SL ni BE ga suradi")
+scanOB     = input.bool(true,  "Qarama-qarshi OB/FVG", group = gRD)
+scanLQ     = input.bool(true,  "Yechilmagan likvidlik (LAOL)", group = gRD)
+scanHCS    = input.bool(true,  "HCS zonalar", group = gRD)
+radarBuf   = input.float(0.15, "To'siq buferi (R)", minval = 0.0, step = 0.05, group = gRD,
+     tooltip = "TP to'siqdan shuncha R oldin qo'yiladi")
+minTPr     = input.float(1.5, "Minimal TP (R)", minval = 0.5, step = 0.5, group = gRD,
+     tooltip = "To'siq juda yaqin bo'lsa — shu masofadan kam TP qo'yilmaydi")
+blockBelow = input.float(2.0, "Kirish filtri: min bo'sh yo'l (R)", minval = 0.5, step = 0.5, group = gRD,
+     tooltip = "To'siqqacha shundan kam bo'lsa savdoga kirmaydi")
+
 gBE = "POZITSIYA BOSHQARUVI (asl mantiqqa tegmaydi)"
 useBE    = input.bool(false, "Breakeven ko'chirish", group = gBE,
      tooltip = "Narx belgilangan R ga yetsa, SL kirish narxiga ko'chadi.\nZararni kamaytiradi, lekin ba'zi yutuqlarni ham yo'qotadi.")
@@ -2032,7 +2048,68 @@ tagLong  = longSigFinal ? "FINAL" : "CONF"
 slipVal = slipTick * syminfo.mintick
 commVal = useComm ? commUsd : 0.0
 
+// ============================================================
+//  RADAR — TP yo'lidagi eng yaqin to'siqni topadi
+//  isLong=true  -> yuqoridagi to'siqlarni qidiradi
+//  isLong=false -> pastdagi to'siqlarni qidiradi
+//  Qaytaradi: eng yaqin to'siq narxi (na = to'siq yo'q)
+// ============================================================
+f_radar(bool isLong, float entryPx) =>
+    float nearest = na
+
+    // --- 1) Qarama-qarshi OB/FVG qutilar ---
+    if scanOB
+        for i = 0 to TF_COUNT - 1
+            bxs = f_get_boxes(i)
+            if array.size(bxs) > 0
+                for bx in bxs
+                    if bx.state == "FORMING"
+                        continue
+                    // LONG uchun: yuqorida turgan BEAR zona to'siq
+                    if isLong and bx.direction == "bear" and bx.original_bottom > entryPx
+                        if na(nearest) or bx.original_bottom < nearest
+                            nearest := bx.original_bottom
+                    // SHORT uchun: pastda turgan BULL zona to'siq
+                    if not isLong and bx.direction == "bull" and bx.original_top < entryPx
+                        if na(nearest) or bx.original_top > nearest
+                            nearest := bx.original_top
+
+    // --- 2) Yechilmagan likvidlik (LAOL chiziqlari) ---
+    if scanLQ
+        for ll in bear_laol_lines
+            if not ll.is_broken and isLong and ll.level > entryPx
+                if na(nearest) or ll.level < nearest
+                    nearest := ll.level
+        for ll in bull_laol_lines
+            if not ll.is_broken and not isLong and ll.level < entryPx
+                if na(nearest) or ll.level > nearest
+                    nearest := ll.level
+        for ll in bear_scalp_laol_lines
+            if not ll.is_broken and isLong and ll.level > entryPx
+                if na(nearest) or ll.level < nearest
+                    nearest := ll.level
+        for ll in bull_scalp_laol_lines
+            if not ll.is_broken and not isLong and ll.level < entryPx
+                if na(nearest) or ll.level > nearest
+                    nearest := ll.level
+
+    // --- 3) HCS zonalar ---
+    if scanHCS
+        for h in hcs_boxes_bear
+            if isLong and h.bottom_val > entryPx
+                if na(nearest) or h.bottom_val < nearest
+                    nearest := h.bottom_val
+        for h in hcs_boxes_bull
+            if not isLong and h.top_val < entryPx
+                if na(nearest) or h.top_val > nearest
+                    nearest := h.top_val
+
+    nearest
+
 // --- pozitsiya boshqaruvi holati ---
+var int   radarBlocked = 0
+var float radarDistL = na
+var float radarDistS = na
 var float posEntry = na
 var float posSL    = na
 var float posTP    = na
@@ -2050,23 +2127,43 @@ if shortSig
     rng = s - e
     if rng > 0
         tp = useTP40 ? e - (PIP_TARGET * pip_value) : e - (rng * TP_MULTIPLIER)
+
+        // --- RADAR ---
+        bool blocked = false
+        if useRadar
+            obst = f_radar(false, e)
+            if not na(obst)
+                distR = (e - obst) / rng
+                radarDistS := distR
+                if (radarMode == "Kirish filtri" or radarMode == "Hammasi") and distR < blockBelow
+                    blocked := true
+                if radarMode == "Dinamik TP" or radarMode == "Hammasi"
+                    newTP = obst + rng * radarBuf
+                    if newTP > tp
+                        tp := math.min(newTP, e - rng * minTPr)
+            else
+                radarDistS := na
+        if blocked
+            radarBlocked += 1
         rAmt = riskMode == "Dollar $" ? riskUsd : strategy.equity * riskPct / 100
         q = rAmt / (rng + slipVal)
-        strategy.entry("S", strategy.short, qty = q, comment = tagShort + "|" + final_entry_bear_pattern)
-        if usePartial
+        if not blocked
+            strategy.entry("S", strategy.short, qty = q, comment = tagShort + "|" + final_entry_bear_pattern)
+        if not blocked and usePartial
             strategy.exit("Sx1", "S", qty_percent = p1Pct, stop = s + slipVal, limit = e - rng * p1R)
             if p2Pct > 0
                 strategy.exit("Sx2", "S", qty_percent = p2Pct, stop = s + slipVal, limit = e - rng * p2R)
             strategy.exit("Sx3", "S", stop = s + slipVal, limit = tp)
-        else
+        else if not blocked
             strategy.exit("Sx", "S", stop = s + slipVal, limit = tp)
-        posEntry := e
-        posSL := s + slipVal
-        posTP := tp
-        posR := rng
-        posLong := false
-        beMoved := false
-        bestPrice := e
+        if not blocked
+            posEntry := e
+            posSL := s + slipVal
+            posTP := tp
+            posR := rng
+            posLong := false
+            beMoved := false
+            bestPrice := e
 
 if longSig
     e = math.min(open, close)
@@ -2077,23 +2174,43 @@ if longSig
     rng = e - s
     if rng > 0
         tp = useTP40 ? e + (PIP_TARGET * pip_value) : e + (rng * TP_MULTIPLIER)
+
+        // --- RADAR ---
+        bool blocked = false
+        if useRadar
+            obst = f_radar(true, e)
+            if not na(obst)
+                distR = (obst - e) / rng
+                radarDistL := distR
+                if (radarMode == "Kirish filtri" or radarMode == "Hammasi") and distR < blockBelow
+                    blocked := true
+                if radarMode == "Dinamik TP" or radarMode == "Hammasi"
+                    newTP = obst - rng * radarBuf
+                    if newTP < tp
+                        tp := math.max(newTP, e + rng * minTPr)
+            else
+                radarDistL := na
+        if blocked
+            radarBlocked += 1
         rAmt = riskMode == "Dollar $" ? riskUsd : strategy.equity * riskPct / 100
         q = rAmt / (rng + slipVal)
-        strategy.entry("L", strategy.long, qty = q, comment = tagLong + "|" + final_entry_bull_pattern)
-        if usePartial
+        if not blocked
+            strategy.entry("L", strategy.long, qty = q, comment = tagLong + "|" + final_entry_bull_pattern)
+        if not blocked and usePartial
             strategy.exit("Lx1", "L", qty_percent = p1Pct, stop = s - slipVal, limit = e + rng * p1R)
             if p2Pct > 0
                 strategy.exit("Lx2", "L", qty_percent = p2Pct, stop = s - slipVal, limit = e + rng * p2R)
             strategy.exit("Lx3", "L", stop = s - slipVal, limit = tp)
-        else
+        else if not blocked
             strategy.exit("Lx", "L", stop = s - slipVal, limit = tp)
-        posEntry := e
-        posSL := s - slipVal
-        posTP := tp
-        posR := rng
-        posLong := true
-        beMoved := false
-        bestPrice := e
+        if not blocked
+            posEntry := e
+            posSL := s - slipVal
+            posTP := tp
+            posR := rng
+            posLong := true
+            beMoved := false
+            bestPrice := e
 
 // ============================================================
 //  BREAKEVEN va TRAILING (ixtiyoriy, default o'chiq)
@@ -2110,6 +2227,16 @@ if strategy.position_size != 0 and not na(posR) and posR > 0
     if useBE and not beMoved and mfeR >= beAtR
         beMoved := true
         newSL := posLong ? posEntry + posR * beOffset : posEntry - posR * beOffset
+
+    // --- 1.5) ADAPTIV SL (radar) ---
+    // Yo'lda to'siq juda yaqinlashsa -> SL ni BE ga suramiz
+    if useRadar and (radarMode == "Adaptiv SL" or radarMode == "Hammasi") and mfeR >= 0.5
+        obst2 = f_radar(posLong, close)
+        if not na(obst2)
+            distNow = posLong ? (obst2 - close) / posR : (close - obst2) / posR
+            if distNow < 0.5
+                cand = posLong ? posEntry + posR * beOffset : posEntry - posR * beOffset
+                newSL := posLong ? math.max(newSL, cand) : math.min(newSL, cand)
 
     // --- 2) Trailing ---
     if useTrail and mfeR >= trailStartR
@@ -2146,6 +2273,17 @@ plot(strategy.position_size != 0 ? posSL : na, "SL", color.new(color.red, 0), 2,
 plot(strategy.position_size != 0 ? posTP : na, "TP", color.new(color.green, 0), 2, plot.style_linebr)
 plot(strategy.position_size != 0 ? posEntry : na, "Entry", color.new(color.blue, 0), 1, plot.style_linebr)
 
+// radar to'sig'i chizig'i
+var line radarLine = na
+if useRadar and barstate.islast
+    line.delete(radarLine)
+    ob = f_radar(true, close)
+    ob2 = f_radar(false, close)
+    lvl = na(ob) ? ob2 : (na(ob2) ? ob : (math.abs(ob-close) < math.abs(ob2-close) ? ob : ob2))
+    if not na(lvl)
+        radarLine := line.new(bar_index - 50, lvl, bar_index + 20, lvl,
+             color = color.new(color.orange, 20), style = line.style_dashed, width = 2)
+
 plotshape(longSig,  "LONG",  shape.triangleup,   location.belowbar, color.new(color.green,0), size = size.small)
 plotshape(shortSig, "SHORT", shape.triangledown, location.abovebar, color.new(color.red,0),   size = size.small)
 
@@ -2153,7 +2291,7 @@ plotshape(shortSig, "SHORT", shape.triangledown, location.abovebar, color.new(co
 var table dsh = na
 if barstate.islast
     table.delete(dsh)
-    dsh := table.new(position.top_right, 2, 11, border_width = 1, frame_color = color.new(color.gray, 50), frame_width = 1)
+    dsh := table.new(position.top_right, 2, 12, border_width = 1, frame_color = color.new(color.gray, 50), frame_width = 1)
     cGood = color.new(color.green, 60)
     cBad  = color.new(color.red, 60)
     cNeut = color.new(color.gray, 60)
@@ -2174,6 +2312,8 @@ if barstate.islast
     table.cell(dsh, 1, 6, str.tostring(100.0/(1.0+TP_MULTIPLIER), "#.#") + "%", text_color = color.white, text_size = size.small, bgcolor = cNeut)
     table.cell(dsh, 0, 7, "Net profit", text_color = color.white, text_size = size.small, bgcolor = color.new(color.black, 25))
     table.cell(dsh, 1, 7, str.tostring(strategy.netprofit, "#.##"), text_color = color.white, text_size = size.small, bgcolor = strategy.netprofit > 0 ? cGood : cBad)
+    table.cell(dsh, 0, 11, "Radar", text_color = color.white, text_size = size.small, bgcolor = color.new(color.black, 25))
+    table.cell(dsh, 1, 11, useRadar ? radarMode + (radarBlocked > 0 ? "  (bloklandi: " + str.tostring(radarBlocked) + ")" : "") : "o'chiq", text_color = color.white, text_size = size.small, bgcolor = useRadar ? color.new(color.orange, 50) : cNeut)
     table.cell(dsh, 0, 10, "Chiqish sxemasi", text_color = color.white, text_size = size.small, bgcolor = color.new(color.black, 25))
     table.cell(dsh, 1, 10, usePartial ? str.tostring(p1Pct) + "%@" + str.tostring(p1R) + "R" + (p2Pct > 0 ? " + " + str.tostring(p2Pct) + "%@" + str.tostring(p2R) + "R" : "") + " + qolgani@8R" : "100% @ 8R", text_color = color.white, text_size = size.small, bgcolor = usePartial ? color.new(color.teal, 50) : cNeut)
     table.cell(dsh, 0, 9, "Poz. boshqaruvi", text_color = color.white, text_size = size.small, bgcolor = color.new(color.black, 25))
