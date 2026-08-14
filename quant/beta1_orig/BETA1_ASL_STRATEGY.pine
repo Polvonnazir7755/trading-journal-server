@@ -61,7 +61,7 @@ gBE = "POZITSIYA BOSHQARUVI (asl mantiqqa tegmaydi)"
 useBE    = input.bool(false, "Breakeven ko'chirish", group = gBE,
      tooltip = "Narx belgilangan R ga yetsa, SL kirish narxiga ko'chadi.\nZararni kamaytiradi, lekin ba'zi yutuqlarni ham yo'qotadi.")
 beAtR    = input.float(1.5, "BE ga ko'chirish (R)", minval = 0.2, step = 0.1, group = gBE)
-beOffset = input.float(0.0, "BE ofset (R) — kichik foyda qoldirish", minval = 0.0, step = 0.1, group = gBE,
+beOffset = input.float(0.1, "BE ofset (R) — kichik foyda qoldirish", minval = 0.0, step = 0.1, group = gBE,
      tooltip = "0.1 = SL kirishdan 0.1R yuqoriga qo'yiladi (komissiyani qoplaydi)")
 
 useTrail = input.bool(false, "Trailing stop", group = gBE,
@@ -2118,6 +2118,13 @@ var bool  posLong  = false
 var bool  beMoved  = false
 var float bestPrice = na
 
+// --- BE statistikasi (o'lchov uchun) ---
+var int   beMovedCnt = 0    // nechta savdoda SL breakevenga surildi
+var int   beStopCnt  = 0    // shundan nechtasi BE da yopildi (qutqarildi yoki yutuq o'ldi)
+var int   mfe4Lost   = 0    // 4R+ ga borgan, lekin foydasiz yopilgan savdolar
+var int   prevClosed = 0
+var float curMfeR    = 0.0
+
 if shortSig
     e = math.max(open, close)
     s = high
@@ -2223,9 +2230,12 @@ if strategy.position_size != 0 and not na(posR) and posR > 0
 
     float newSL = posSL
 
+    curMfeR := mfeR
+
     // --- 1) Breakeven ---
     if useBE and not beMoved and mfeR >= beAtR
         beMoved := true
+        beMovedCnt += 1
         newSL := posLong ? posEntry + posR * beOffset : posEntry - posR * beOffset
 
     // --- 1.5) ADAPTIV SL (radar) ---
@@ -2263,6 +2273,19 @@ if strategy.position_size != 0 and not na(posR) and posR > 0
         else
             strategy.exit("Sx", "S", stop = posSL, limit = posTP)
 
+// --- savdo yopilganda statistikani yig'ish ---
+if strategy.closedtrades > prevClosed
+    for k = prevClosed to strategy.closedtrades - 1
+        float pnlK = strategy.closedtrades.profit(k)
+        // BE yaqinida yopilgan (kichik plyus/minus) — SL surilgan bo'lsa
+        if beMoved and math.abs(pnlK) < (riskMode == "Dollar $" ? riskUsd : strategy.equity * riskPct / 100) * 0.35
+            beStopCnt += 1
+        // uzoqqa borib foydasiz qaytgan
+        if curMfeR >= 4.0 and pnlK <= 0
+            mfe4Lost += 1
+    prevClosed := strategy.closedtrades
+    curMfeR := 0.0
+
 // pozitsiya yopilganda tozalash
 if strategy.position_size == 0
     posR := na
@@ -2291,7 +2314,7 @@ plotshape(shortSig, "SHORT", shape.triangledown, location.abovebar, color.new(co
 var table dsh = na
 if barstate.islast
     table.delete(dsh)
-    dsh := table.new(position.top_right, 2, 12, border_width = 1, frame_color = color.new(color.gray, 50), frame_width = 1)
+    dsh := table.new(position.top_right, 2, 15, border_width = 1, frame_color = color.new(color.gray, 50), frame_width = 1)
     cGood = color.new(color.green, 60)
     cBad  = color.new(color.red, 60)
     cNeut = color.new(color.gray, 60)
@@ -2320,6 +2343,16 @@ if barstate.islast
     table.cell(dsh, 1, 9, (useBE ? "BE " + str.tostring(beAtR) + "R" : "") + (useTrail ? " Trail " + str.tostring(trailR) + "R" : "") + (not useBE and not useTrail ? "yo'q" : ""), text_color = color.white, text_size = size.small, bgcolor = useBE or useTrail ? color.new(color.purple, 60) : cNeut)
     table.cell(dsh, 0, 8, "Max DD", text_color = color.white, text_size = size.small, bgcolor = color.new(color.black, 25))
     table.cell(dsh, 1, 8, str.tostring(strategy.max_drawdown, "#.##"), text_color = color.white, text_size = size.small, bgcolor = cNeut)
+    // --- Recovery factor ---
+    rf = strategy.max_drawdown > 0 ? strategy.netprofit / strategy.max_drawdown : 0
+    table.cell(dsh, 0, 12, "Recovery factor", text_color = color.white, text_size = size.small, bgcolor = color.new(color.black, 25))
+    table.cell(dsh, 1, 12, str.tostring(rf, "#.##") + (rf >= 2.0 ? "  OK" : "  past"), text_color = color.white, text_size = size.small, bgcolor = rf >= 2.0 ? cGood : cBad)
+    // --- BE statistikasi ---
+    bePct = strategy.closedtrades > 0 ? beMovedCnt * 100.0 / strategy.closedtrades : 0
+    table.cell(dsh, 0, 13, "BE surildi", text_color = color.white, text_size = size.small, bgcolor = color.new(color.black, 25))
+    table.cell(dsh, 1, 13, useBE ? str.tostring(beMovedCnt) + " (" + str.tostring(bePct, "#.#") + "%) -> BE da yopildi: " + str.tostring(beStopCnt) : "o'chiq", text_color = color.white, text_size = size.small, bgcolor = useBE ? color.new(color.purple, 50) : cNeut)
+    table.cell(dsh, 0, 14, "4R+ borib yo'qotildi", text_color = color.white, text_size = size.small, bgcolor = color.new(color.black, 25))
+    table.cell(dsh, 1, 14, str.tostring(mfe4Lost) + " ta", text_color = color.white, text_size = size.small, bgcolor = mfe4Lost > strategy.closedtrades * 0.15 ? cBad : cNeut)
 
 alertcondition(longSig,  "LONG",  "BETA1 LONG")
 alertcondition(shortSig, "SHORT", "BETA1 SHORT")
