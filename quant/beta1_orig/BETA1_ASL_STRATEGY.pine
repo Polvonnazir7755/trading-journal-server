@@ -27,6 +27,10 @@ strategy("BETA 1 + LAOL — Strategy", overlay=true,
      margin_long = 0, margin_short = 0)
 
 // ---- FAQAT SAVDO SOZLAMALARI (asl mantiqqa tegmaydi) ----
+gPF = "TEZLIK (asl mantiqqa tegmaydi)"
+showViz = input.bool(false, "Grafik chizish (qutilar, chiziqlar, yorliqlar)", group = gPF,
+     tooltip = "O'CHIQ = backtest 2-3 barobar tez ishlaydi, timeout bo'lmaydi.\nSavdo mantiqi mutlaqo o'zgarmaydi \u2014 faqat ko'rinish o'chadi.\nYOQ = grafikda hamma zona/chiziq ko'rinadi (sekin).")
+
 gTR = "SAVDO (asl mantiqqa ta'sir qilmaydi)"
 sigMode = input.string("FINAL ENTRY", "Qaysi signalda savdo?",
      options = ["FINAL ENTRY", "CONFIRMED", "IKKALASI"], group = gTR,
@@ -823,36 +827,37 @@ f_merge_cross_category(laol_line_data[] entry_lines, laol_line_data[] scalp_line
     merged
 
 f_scan_laol_in_box(laol_line_data[] laol_arr, float xtop, float xbot, bool is_bear, string laol_cat, string box_cat) =>
-    color col  = laol_cat == "ENTRY" ? color.new(color.blue,  0) : color.new(color.green, 0)
-    color lcol = laol_cat == "ENTRY" ? color.new(color.blue, 50) : color.new(color.green, 50)
-    int   off  = laol_cat == "ENTRY" ? 15 : 30
-    float tol  = syminfo.mintick * 3
-    for ll in laol_arr
-        if ll.is_broken
-            continue
-        if ll.level <= xtop and ll.level >= xbot
-            bool already = false
-            int  sz = array.size(xlaol_levels)
-            if sz > 0
-                for ei = 0 to sz - 1
-                    if math.abs(array.get(xlaol_levels, ei) - ll.level) < tol and array.get(xlaol_cat, ei) == laol_cat
-                        elbl = array.get(xlaol_labels, ei)
-                        if not na(elbl)
-                            cur_txt = label.get_text(elbl)
-                            if not str.contains(cur_txt, box_cat)
-                                label.set_text(elbl, cur_txt + "+" + box_cat)
-                                label.set_color(elbl, color.new(color.purple, 40))
-                        already := true
-                        break
-            if not already
-                ln = line.new(bar_index, ll.level, bar_index + off, ll.level, color=col, width=1, style=line.style_dashed, extend=extend.none)
-                lb = label.new(bar_index + off, ll.level, laol_cat + " LAOL [" + ll.tf_labels + "] in " + box_cat, style=label.style_label_left, color=lcol, textcolor=color.white, size=size.tiny)
-                array.push(xlaol_lines,  ln)
-                array.push(xlaol_labels, lb)
-                array.push(xlaol_levels, ll.level)
-                array.push(xlaol_bear,   is_bear)
-                array.push(xlaol_cat,    laol_cat)
-                array.push(xlaol_off,    off)
+    if showViz
+        color col  = laol_cat == "ENTRY" ? color.new(color.blue,  0) : color.new(color.green, 0)
+        color lcol = laol_cat == "ENTRY" ? color.new(color.blue, 50) : color.new(color.green, 50)
+        int   off  = laol_cat == "ENTRY" ? 15 : 30
+        float tol  = syminfo.mintick * 3
+        for ll in laol_arr
+            if ll.is_broken
+                continue
+            if ll.level <= xtop and ll.level >= xbot
+                bool already = false
+                int  sz = array.size(xlaol_levels)
+                if sz > 0
+                    for ei = 0 to sz - 1
+                        if math.abs(array.get(xlaol_levels, ei) - ll.level) < tol and array.get(xlaol_cat, ei) == laol_cat
+                            elbl = array.get(xlaol_labels, ei)
+                            if not na(elbl)
+                                cur_txt = label.get_text(elbl)
+                                if not str.contains(cur_txt, box_cat)
+                                    label.set_text(elbl, cur_txt + "+" + box_cat)
+                                    label.set_color(elbl, color.new(color.purple, 40))
+                            already := true
+                            break
+                if not already
+                    ln = line.new(bar_index, ll.level, bar_index + off, ll.level, color=col, width=1, style=line.style_dashed, extend=extend.none)
+                    lb = label.new(bar_index + off, ll.level, laol_cat + " LAOL [" + ll.tf_labels + "] in " + box_cat, style=label.style_label_left, color=lcol, textcolor=color.white, size=size.tiny)
+                    array.push(xlaol_lines,  ln)
+                    array.push(xlaol_labels, lb)
+                    array.push(xlaol_levels, ll.level)
+                    array.push(xlaol_bear,   is_bear)
+                    array.push(xlaol_cat,    laol_cat)
+                    array.push(xlaol_off,    off)
     0
 
 f_manage_tf_boxes(tracked_box[] boxes, float p_h, float p_l, int p_t, bool p_conf, string tf_str) =>
@@ -872,7 +877,7 @@ f_manage_tf_boxes(tracked_box[] boxes, float p_h, float p_l, int p_t, bool p_con
                 continue
             bx = array.get(boxes, idx)
             bool is_em = f_is_em_pattern(bx.pattern_text)
-            if bx.state == "FORMING" and na(bx.box_obj) and p_conf
+            if bx.state == "FORMING" and na(bx.box_obj) and p_conf and showViz
                 bx.box_obj := box.new(bar_index, bx.top_val, bar_index + 50, bx.bottom_val, border_color = is_em ? color.new(bx.border_color, unretested_border_transparency) : bx.border_color, bgcolor = bx.box_color, extend = extend.right, border_style = line.style_dashed, border_width = 1, text = is_em ? bx.pattern_text : "", text_size = size.small, text_color = color.new(color.white, 100), text_halign = text.align_left, text_valign = text.align_top)
             if not na(bx.box_obj)
                 if bx.has_been_retested
@@ -1117,33 +1122,39 @@ f_manage_hcs_boxes(hcs_box_data[] hcs_boxes, bool is_bear) =>
             if is_bear
                 if not hcs.is_broken and high > hcs.top_val
                     hcs.is_broken := true
-                    hcs.box_obj := box.new(hcs.creation_bar, hcs.top_val, bar_index + 50, hcs.bottom_val, border_color = hcs_bear_border, bgcolor = hcs_bear_bg, extend = extend.right, border_width = 2, border_style = line.style_solid, text = "HCS BROKEN [" + hcs.tf_label + "]", text_size = size.small, text_color = color.white, text_halign = text.align_left, text_valign = text.align_top)
-                if hcs.is_broken and not na(hcs.box_obj)
+                    if showViz
+                        hcs.box_obj := box.new(hcs.creation_bar, hcs.top_val, bar_index + 50, hcs.bottom_val, border_color = hcs_bear_border, bgcolor = hcs_bear_bg, extend = extend.right, border_width = 2, border_style = line.style_solid, text = "HCS BROKEN [" + hcs.tf_label + "]", text_size = size.small, text_color = color.white, text_halign = text.align_left, text_valign = text.align_top)
+                if hcs.is_broken
                     if high >= hcs.bottom_val and high <= hcs.top_val
                         any_retesting := true
                     if low < hcs.bottom_val
-                        box.delete(hcs.box_obj)
+                        if not na(hcs.box_obj)
+                            box.delete(hcs.box_obj)
                         array.remove(hcs_boxes, idx)
                         continue
                     if low <= hcs.top_val and low >= hcs.bottom_val
                         if low < hcs.top_val
                             hcs.top_val := low
-                            box.set_top(hcs.box_obj, hcs.top_val)
+                            if not na(hcs.box_obj)
+                                box.set_top(hcs.box_obj, hcs.top_val)
             else
                 if not hcs.is_broken and low < hcs.bottom_val
                     hcs.is_broken := true
-                    hcs.box_obj := box.new(hcs.creation_bar, hcs.top_val, bar_index + 50, hcs.bottom_val, border_color = hcs_bull_border, bgcolor = hcs_bull_bg, extend = extend.right, border_width = 2, border_style = line.style_solid, text = "HCS BROKEN [" + hcs.tf_label + "]", text_size = size.small, text_color = color.white, text_halign = text.align_left, text_valign = text.align_top)
-                if hcs.is_broken and not na(hcs.box_obj)
+                    if showViz
+                        hcs.box_obj := box.new(hcs.creation_bar, hcs.top_val, bar_index + 50, hcs.bottom_val, border_color = hcs_bull_border, bgcolor = hcs_bull_bg, extend = extend.right, border_width = 2, border_style = line.style_solid, text = "HCS BROKEN [" + hcs.tf_label + "]", text_size = size.small, text_color = color.white, text_halign = text.align_left, text_valign = text.align_top)
+                if hcs.is_broken
                     if low >= hcs.bottom_val and low <= hcs.top_val
                         any_retesting := true
                     if high > hcs.top_val
-                        box.delete(hcs.box_obj)
+                        if not na(hcs.box_obj)
+                            box.delete(hcs.box_obj)
                         array.remove(hcs_boxes, idx)
                         continue
                     if low >= hcs.bottom_val and low <= hcs.top_val
                         if low > hcs.bottom_val
                             hcs.bottom_val := low
-                            box.set_bottom(hcs.box_obj, hcs.bottom_val)
+                            if not na(hcs.box_obj)
+                                box.set_bottom(hcs.box_obj, hcs.bottom_val)
     any_retesting
 
 int entry_sn_bear_count = 0
@@ -2298,7 +2309,7 @@ plot(strategy.position_size != 0 ? posEntry : na, "Entry", color.new(color.blue,
 
 // radar to'sig'i chizig'i
 var line radarLine = na
-if useRadar and barstate.islast
+if useRadar and showViz and barstate.islast
     line.delete(radarLine)
     ob = f_radar(true, close)
     ob2 = f_radar(false, close)
@@ -2314,7 +2325,7 @@ plotshape(shortSig, "SHORT", shape.triangledown, location.abovebar, color.new(co
 var table dsh = na
 if barstate.islast
     table.delete(dsh)
-    dsh := table.new(position.top_right, 2, 15, border_width = 1, frame_color = color.new(color.gray, 50), frame_width = 1)
+    dsh := table.new(position.top_right, 2, 16, border_width = 1, frame_color = color.new(color.gray, 50), frame_width = 1)
     cGood = color.new(color.green, 60)
     cBad  = color.new(color.red, 60)
     cNeut = color.new(color.gray, 60)
@@ -2351,6 +2362,8 @@ if barstate.islast
     bePct = strategy.closedtrades > 0 ? beMovedCnt * 100.0 / strategy.closedtrades : 0
     table.cell(dsh, 0, 13, "BE surildi", text_color = color.white, text_size = size.small, bgcolor = color.new(color.black, 25))
     table.cell(dsh, 1, 13, useBE ? str.tostring(beMovedCnt) + " (" + str.tostring(bePct, "#.#") + "%) -> BE da yopildi: " + str.tostring(beStopCnt) : "o'chiq", text_color = color.white, text_size = size.small, bgcolor = useBE ? color.new(color.purple, 50) : cNeut)
+    table.cell(dsh, 0, 15, "Rejim", text_color = color.white, text_size = size.small, bgcolor = color.new(color.black, 25))
+    table.cell(dsh, 1, 15, showViz ? "GRAFIK (sekin)" : "TEZKOR (chizmasdan)", text_color = color.white, text_size = size.small, bgcolor = showViz ? color.new(color.orange, 50) : cGood)
     table.cell(dsh, 0, 14, "4R+ borib yo'qotildi", text_color = color.white, text_size = size.small, bgcolor = color.new(color.black, 25))
     table.cell(dsh, 1, 14, str.tostring(mfe4Lost) + " ta", text_color = color.white, text_size = size.small, bgcolor = mfe4Lost > strategy.closedtrades * 0.15 ? cBad : cNeut)
 
