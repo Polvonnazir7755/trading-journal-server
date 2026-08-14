@@ -31,6 +31,12 @@ gPF = "TEZLIK (asl mantiqqa tegmaydi)"
 showViz = input.bool(false, "Grafik chizish (qutilar, chiziqlar, yorliqlar)", group = gPF,
      tooltip = "O'CHIQ = backtest 2-3 barobar tez ishlaydi, timeout bo'lmaydi.\nSavdo mantiqi mutlaqo o'zgarmaydi \u2014 faqat ko'rinish o'chadi.\nYOQ = grafikda hamma zona/chiziq ko'rinadi (sekin).")
 
+gDT = "SANA ORALIG'I (bepul \u2014 TradingView tarifi shart emas)"
+useDate  = input.bool(false, "Sana oralig'ini cheklash", group = gDT,
+     tooltip = "YOQ = faqat tanlangan oraliqda savdo ochiladi.\nTradingView Properties dagi 'Backtest date range' pullik \u2014 bu esa bepul ishlaydi.")
+dtStart  = input.time(timestamp("01 Jul 2026 00:00 +0000"), "Boshlanish", group = gDT)
+dtEnd    = input.time(timestamp("26 Jul 2026 23:59 +0000"), "Tugash", group = gDT)
+
 gTR = "SAVDO (asl mantiqqa ta'sir qilmaydi)"
 sigMode = input.string("FINAL ENTRY", "Qaysi signalda savdo?",
      options = ["FINAL ENTRY", "CONFIRMED", "IKKALASI"], group = gTR,
@@ -2050,8 +2056,15 @@ longSigFinal  = useFinalSig and final_entry_bull
 shortSigConf  = useConfSig and bear_confirmed_triggered and not shortSigFinal
 longSigConf   = useConfSig and bull_confirmed_triggered and not longSigFinal
 
-shortSig = (shortSigFinal or shortSigConf) and strategy.position_size == 0 and barstate.isconfirmed
-longSig  = (longSigFinal or longSigConf) and strategy.position_size == 0 and barstate.isconfirmed
+// sana oralig'i filtri (kod ichida — bepul)
+inDateRange = not useDate or (time >= dtStart and time <= dtEnd)
+
+shortSig = (shortSigFinal or shortSigConf) and strategy.position_size == 0 and barstate.isconfirmed and inDateRange
+longSig  = (longSigFinal or longSigConf) and strategy.position_size == 0 and barstate.isconfirmed and inDateRange
+
+// oraliq tugagach ochiq pozitsiyani yopish (statistika toza bo'lishi uchun)
+if useDate and time > dtEnd and strategy.position_size != 0
+    strategy.close_all(comment = "Davr tugadi")
 
 tagShort = shortSigFinal ? "FINAL" : "CONF"
 tagLong  = longSigFinal ? "FINAL" : "CONF"
@@ -2325,7 +2338,7 @@ plotshape(shortSig, "SHORT", shape.triangledown, location.abovebar, color.new(co
 var table dsh = na
 if barstate.islast
     table.delete(dsh)
-    dsh := table.new(position.top_right, 2, 16, border_width = 1, frame_color = color.new(color.gray, 50), frame_width = 1)
+    dsh := table.new(position.top_right, 2, 17, border_width = 1, frame_color = color.new(color.gray, 50), frame_width = 1)
     cGood = color.new(color.green, 60)
     cBad  = color.new(color.red, 60)
     cNeut = color.new(color.gray, 60)
@@ -2362,6 +2375,8 @@ if barstate.islast
     bePct = strategy.closedtrades > 0 ? beMovedCnt * 100.0 / strategy.closedtrades : 0
     table.cell(dsh, 0, 13, "BE surildi", text_color = color.white, text_size = size.small, bgcolor = color.new(color.black, 25))
     table.cell(dsh, 1, 13, useBE ? str.tostring(beMovedCnt) + " (" + str.tostring(bePct, "#.#") + "%) -> BE da yopildi: " + str.tostring(beStopCnt) : "o'chiq", text_color = color.white, text_size = size.small, bgcolor = useBE ? color.new(color.purple, 50) : cNeut)
+    table.cell(dsh, 0, 16, "Davr", text_color = color.white, text_size = size.small, bgcolor = color.new(color.black, 25))
+    table.cell(dsh, 1, 16, useDate ? str.format_time(dtStart, "dd MMM") + " - " + str.format_time(dtEnd, "dd MMM yyyy") : "hammasi", text_color = color.white, text_size = size.small, bgcolor = useDate ? color.new(color.blue, 50) : cNeut)
     table.cell(dsh, 0, 15, "Rejim", text_color = color.white, text_size = size.small, bgcolor = color.new(color.black, 25))
     table.cell(dsh, 1, 15, showViz ? "GRAFIK (sekin)" : "TEZKOR (chizmasdan)", text_color = color.white, text_size = size.small, bgcolor = showViz ? color.new(color.orange, 50) : cGood)
     table.cell(dsh, 0, 14, "4R+ borib yo'qotildi", text_color = color.white, text_size = size.small, bgcolor = color.new(color.black, 25))
