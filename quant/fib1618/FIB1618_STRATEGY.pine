@@ -71,8 +71,10 @@ slBufPct  = input.float(2.0, "SL bufer (% dan bo'y)", minval = 0, step = 0.5, gr
      tooltip = "SL minimumdan shuncha pastga qo'yiladi (W bo'yining % i)")
 
 gR = "RISK"
-riskMode = input.string("Dollar $", "Risk turi", options = ["Foiz %", "Dollar $"], group = gR)
-riskPct  = input.float(1.0, "Risk %", minval = 0.1, step = 0.1, group = gR)
+riskMode = input.string("Foiz %", "Risk turi", options = ["Foiz %", "Dollar $"], group = gR,
+     tooltip = "Foiz % = compounding (hisob o'sgani sari pozitsiya ham o'sadi).\nDollar $ = qat'iy summa, compounding yo'q.")
+riskPct  = input.float(5.0, "Risk %", minval = 0.1, step = 0.5, group = gR,
+     tooltip = "Monte-Carlo (20k sinov, 21 yil):\n 1% -> CAGR 3.2%, DD 4.9%\n 3% -> CAGR 9.6%, DD 13.9%\n 5% -> CAGR 16.0%, DD 22.2%\n10% -> CAGR 32.1%, DD 39.9%")
 riskUsd  = input.float(20.0, "Risk $", minval = 1.0, step = 5.0, group = gR)
 slipTick = input.int(2, "Slippage (tick)", minval = 0, group = gR)
 
