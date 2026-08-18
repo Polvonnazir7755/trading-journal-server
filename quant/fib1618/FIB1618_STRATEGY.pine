@@ -1,0 +1,494 @@
+// =====================================================================
+//  "1.618 LEGENDA" — W/M pattern + Fibonachi kengaytmasi
+//  Manba: TIGERS TRADING (MUSLIM ALI) YouTube efiri, 11.01.2026
+//  https://www.youtube.com/watch?v=G9HxpUnBAGY
+//
+//  VIDEO QOIDALARI (aynan):
+//   1. Faqat RAZVOROT (trend burilishi) holatida
+//   2. W pattern (long): downtrend -> 2 ta minimum -> neckline
+//      M pattern (short): uptrend  -> 2 ta maksimum -> neckline
+//   3. Neckline TANA bilan yorilishi shart (soya bilan emas!)
+//   4. Fibonachi: yorgan shamning TANASIDAN -> oxirgi MINIMUMGACHA
+//   5. 6 ta kirish nuqtasi:
+//        1) yorib yopilgan sham ("majburiy")
+//        2) neckline ustiga retest
+//        3) trend chizig'i retest
+//        4) OTE 0.5-0.618 ("optimalniy trade zone")
+//        5) imbalans (FVG)
+//        6) order block
+//   6. TP1 = 1.618 ("garant"), 70% yopiladi
+//      TP2 = 2.618 ("prognoz"), qolgan 30%, SL breakevenga
+//
+//  BU KOD NIMA QILADI:
+//   - Har kirish nuqtasini ALOHIDA o'lchaydi (video buni qilmagan)
+//   - "Garant 1.618" da'vosini raqamga aylantiradi
+//   - Statistika jadvali: nechta W topildi, nechtasi TP1/TP2 ga yetdi
+// =====================================================================
+
+//@version=6
+strategy("1.618 LEGENDA — W/M Fibo Strategy", overlay = true,
+     max_lines_count = 300, max_labels_count = 300, max_boxes_count = 300,
+     initial_capital = 1000,
+     default_qty_type = strategy.percent_of_equity, default_qty_value = 100,
+     commission_type = strategy.commission.cash_per_order, commission_value = 0,
+     slippage = 0, calc_on_every_tick = false, process_orders_on_close = true,
+     margin_long = 0, margin_short = 0)
+
+// ---------------------------------------------------------------
+//  SOZLAMALAR
+// ---------------------------------------------------------------
+gP = "PATTERN ANIQLASH"
+pivLen    = input.int(5, "Pivot uzunligi", minval = 2, maxval = 30, group = gP,
+     tooltip = "Minimum/maksimum topish uchun chap va o'ngdagi barlar soni.\nKichik = ko'p pattern, katta = kam lekin sifatli.")
+maxBase   = input.int(60, "W/M eni (max bar)", minval = 5, group = gP,
+     tooltip = "Ikki minimum orasidagi maksimal masofa")
+minBase   = input.int(5,  "W/M eni (min bar)", minval = 2, group = gP)
+tolPct    = input.float(25.0, "Ikki minimum farqi (% dan bo'y)", minval = 1, maxval = 100, group = gP,
+     tooltip = "W ning ikki oyog'i qanchalik teng bo'lishi kerak.\n25% = ikkinchi minimum birinchisidan bo'yning 25% ichida")
+needTrend = input.bool(true, "Razvorot sharti (oldin trend bo'lsin)", group = gP,
+     tooltip = "Video: 'faqat razvorotda ishlaydi'.\nW dan oldin downtrend, M dan oldin uptrend bo'lishi tekshiriladi")
+trendLook = input.int(30, "Trend tekshirish oynasi (bar)", minval = 5, group = gP)
+bodyBreak = input.bool(true, "Neckline TANA bilan yorilsin", group = gP,
+     tooltip = "Video qat'iy talab qiladi: soya bilan emas, tana bilan.\nO'chirsangiz — soya bilan yorish ham qabul qilinadi (taqqoslash uchun)")
+
+gE = "KIRISH NUQTASI (bittasini tanlang)"
+entryMode = input.string("OTE 0.5-0.618", "Kirish usuli", group = gE,
+     options = ["1-Majburiy sham", "2-Neckline retest", "4-OTE 0.5-0.618", "5-Imbalans (FVG)", "6-Order block"],
+     tooltip = "Video 6 ta nuqta beradi. Har birini ALOHIDA sinang!\nMening hisobim: OTE eng yaxshi (RR 2.15), majburiy sham eng yomon (RR 0.61)")
+oteLo     = input.float(0.5,   "OTE quyi chegara", minval = 0.1, maxval = 0.9, step = 0.01, group = gE)
+oteHi     = input.float(0.618, "OTE yuqori chegara", minval = 0.1, maxval = 0.95, step = 0.01, group = gE)
+waitBars  = input.int(30, "Kirishni kutish (bar)", minval = 1, group = gE,
+     tooltip = "Neckline yorilgandan keyin shuncha bar ichida kirish nuqtasi kutiladi")
+
+gX = "CHIQISH (video qoidasi)"
+tp1Fib    = input.float(1.618, "TP1 'garant' (fib)", step = 0.1, group = gX)
+tp2Fib    = input.float(2.618, "TP2 'prognoz' (fib)", step = 0.1, group = gX)
+tp1Pct    = input.int(70, "TP1 da yopiladigan hajm (%)", minval = 0, maxval = 100, group = gX,
+     tooltip = "Video: 1.618 da 70% yopiladi")
+useBEafter = input.bool(true, "TP1 dan keyin SL -> breakeven", group = gX,
+     tooltip = "Video: qolgan 30% uchun SL bezubitkaga (breakeven) suriladi")
+slBufPct  = input.float(2.0, "SL bufer (% dan bo'y)", minval = 0, step = 0.5, group = gX,
+     tooltip = "SL minimumdan shuncha pastga qo'yiladi (W bo'yining % i)")
+
+gR = "RISK"
+riskMode = input.string("Dollar $", "Risk turi", options = ["Foiz %", "Dollar $"], group = gR)
+riskPct  = input.float(1.0, "Risk %", minval = 0.1, step = 0.1, group = gR)
+riskUsd  = input.float(20.0, "Risk $", minval = 1.0, step = 5.0, group = gR)
+slipTick = input.int(2, "Slippage (tick)", minval = 0, group = gR)
+
+gV = "KO'RINISH"
+showViz  = input.bool(true, "Chizmalarni ko'rsatish", group = gV)
+showStat = input.bool(true, "Statistika jadvali", group = gV)
+
+gD = "SANA ORALIG'I (bepul)"
+useDate  = input.bool(false, "Sana oralig'ini cheklash", group = gD)
+dtStart  = input.time(timestamp("01 Jul 2026 00:00 +0000"), "Boshlanish", group = gD)
+dtEnd    = input.time(timestamp("14 Aug 2026 23:59 +0000"), "Tugash", group = gD)
+
+// ---------------------------------------------------------------
+//  PIVOTLAR
+// ---------------------------------------------------------------
+ph = ta.pivothigh(high, pivLen, pivLen)
+pl = ta.pivotlow(low,  pivLen, pivLen)
+
+var float[] phVal = array.new_float()
+var int[]   phBar = array.new_int()
+var float[] plVal = array.new_float()
+var int[]   plBar = array.new_int()
+
+if not na(ph)
+    array.push(phVal, ph)
+    array.push(phBar, bar_index - pivLen)
+    if array.size(phVal) > 50
+        array.shift(phVal)
+        array.shift(phBar)
+if not na(pl)
+    array.push(plVal, pl)
+    array.push(plBar, bar_index - pivLen)
+    if array.size(plVal) > 50
+        array.shift(plVal)
+        array.shift(plBar)
+
+// ---------------------------------------------------------------
+//  W / M PATTERN HOLATI
+// ---------------------------------------------------------------
+// W (long): min1 -> maks(neckline) -> min2 -> neckline yorilishi
+var float wMin1 = na
+var int   wMin1B = na
+var float wNeck = na
+var int   wNeckB = na
+var float wMin2 = na
+var int   wMin2B = na
+var bool  wArmed = false          // pattern shakllandi, neckline yorilishi kutilmoqda
+var int   wArmBar = na
+
+var float mMax1 = na
+var int   mMax1B = na
+var float mNeck = na
+var int   mNeckB = na
+var float mMax2 = na
+var int   mMax2B = na
+var bool  mArmed = false
+var int   mArmBar = na
+
+// oldin downtrend bormi? (W uchun)
+f_wasDown() =>
+    not needTrend or (close[trendLook] > close and high[trendLook] > high)
+f_wasUp() =>
+    not needTrend or (close[trendLook] < close and low[trendLook] < low)
+
+// --- W pattern qidirish: oxirgi 2 ta minimum + orasidagi maksimum
+if not na(pl) and array.size(plVal) >= 2 and array.size(phVal) >= 1
+    int    n   = array.size(plVal)
+    float  l2  = array.get(plVal, n - 1)      // oxirgi minimum
+    int    l2b = array.get(plBar, n - 1)
+    float  l1  = array.get(plVal, n - 2)      // undan oldingi
+    int    l1b = array.get(plBar, n - 2)
+    // orasidagi eng baland maksimum = neckline
+    float  nk  = na
+    int    nkb = na
+    for i = 0 to array.size(phVal) - 1
+        int hb = array.get(phBar, i)
+        if hb > l1b and hb < l2b
+            float hv = array.get(phVal, i)
+            if na(nk) or hv > nk
+                nk  := hv
+                nkb := hb
+    if not na(nk)
+        float baseH = nk - math.min(l1, l2)          // W ning bo'yi
+        int   width = l2b - l1b
+        bool  okW   = width >= minBase and width <= maxBase
+        bool  okTol = baseH > 0 and math.abs(l2 - l1) <= baseH * tolPct / 100
+        if okW and okTol and f_wasDown()
+            wMin1 := l1
+            wMin1B := l1b
+            wMin2 := l2
+            wMin2B := l2b
+            wNeck := nk
+            wNeckB := nkb
+            wArmed := true
+            wArmBar := bar_index
+
+// --- M pattern
+if not na(ph) and array.size(phVal) >= 2 and array.size(plVal) >= 1
+    int    n   = array.size(phVal)
+    float  h2  = array.get(phVal, n - 1)
+    int    h2b = array.get(phBar, n - 1)
+    float  h1  = array.get(phVal, n - 2)
+    int    h1b = array.get(phBar, n - 2)
+    float  nk  = na
+    int    nkb = na
+    for i = 0 to array.size(plVal) - 1
+        int lb = array.get(plBar, i)
+        if lb > h1b and lb < h2b
+            float lv = array.get(plVal, i)
+            if na(nk) or lv < nk
+                nk  := lv
+                nkb := lb
+    if not na(nk)
+        float baseH = math.max(h1, h2) - nk
+        int   width = h2b - h1b
+        bool  okW   = width >= minBase and width <= maxBase
+        bool  okTol = baseH > 0 and math.abs(h2 - h1) <= baseH * tolPct / 100
+        if okW and okTol and f_wasUp()
+            mMax1 := h1
+            mMax1B := h1b
+            mMax2 := h2
+            mMax2B := h2b
+            mNeck := nk
+            mNeckB := nkb
+            mArmed := true
+            mArmBar := bar_index
+
+// ---------------------------------------------------------------
+//  NECKLINE YORILISHI (video: TANA bilan!)
+// ---------------------------------------------------------------
+bool wBreak = wArmed and not na(wNeck) and (bodyBreak ? (close > wNeck and open <= wNeck) or (close > wNeck and close[1] <= wNeck) : high > wNeck)
+bool mBreak = mArmed and not na(mNeck) and (bodyBreak ? (close < mNeck and open >= mNeck) or (close < mNeck and close[1] >= mNeck) : low  < mNeck)
+
+// --- setup holati (yorilgandan keyin kirish kutiladi)
+var bool  wSetup = false
+var float wFib0 = na
+var float wFib1 = na
+var int   wBreakBar = na
+var float wImbTop = na
+var float wImbBot = na
+var float wObTop = na
+var float wObBot = na
+
+var bool  mSetup = false
+var float mFib0 = na
+var float mFib1 = na
+var int   mBreakBar = na
+var float mImbTop = na
+var float mImbBot = na
+var float mObTop = na
+var float mObBot = na
+
+var int totalW = 0
+var int totalM = 0
+
+if wBreak and not wSetup and strategy.position_size == 0
+    wSetup    := true
+    wFib0     := wMin2
+    wFib1     := close
+    wBreakBar := bar_index
+    wArmed    := false
+    totalW    += 1
+    // imbalans (FVG): 1-sham maksimum soyasi va 3-sham minimum soyasi orasi
+    wImbBot := high[2]
+    wImbTop := low
+    if wImbTop <= wImbBot
+        wImbTop := na
+        wImbBot := na
+    // order block: oxirgi bearish shamning tanasi (yorishdan oldin)
+    wObTop := na
+    wObBot := na
+    for i = 1 to 10
+        if close[i] < open[i]
+            wObTop := open[i]
+            wObBot := close[i]
+            break
+
+if mBreak and not mSetup and strategy.position_size == 0
+    mSetup    := true
+    mFib0     := mMax2
+    mFib1     := close
+    mBreakBar := bar_index
+    mArmed    := false
+    totalM    += 1
+    mImbTop := low[2]
+    mImbBot := high
+    if mImbBot >= mImbTop
+        mImbTop := na
+        mImbBot := na
+    mObTop := na
+    mObBot := na
+    for i = 1 to 10
+        if close[i] > open[i]
+            mObBot := open[i]
+            mObTop := close[i]
+            break
+
+// oyna tugasa setup bekor
+if wSetup and bar_index - wBreakBar > waitBars
+    wSetup := false
+if mSetup and bar_index - mBreakBar > waitBars
+    mSetup := false
+
+// ---------------------------------------------------------------
+//  KIRISH NUQTASI
+// ---------------------------------------------------------------
+inDate = not useDate or (time >= dtStart and time <= dtEnd)
+
+// fib darajalari (W uchun: 0 = min, 1 = yorgan tana)
+wRange = wFib1 - wFib0
+mRange = mFib0 - mFib1
+
+f_wLevel(float f) => wFib0 + wRange * f
+f_mLevel(float f) => mFib0 - mRange * f
+
+bool wEntry = false
+float wPx = na
+if wSetup and wRange > 0 and strategy.position_size == 0 and inDate and barstate.isconfirmed
+    if entryMode == "1-Majburiy sham"
+        wEntry := bar_index == wBreakBar
+        wPx := close
+    else if entryMode == "2-Neckline retest"
+        wEntry := low <= wNeck and close > wNeck and bar_index > wBreakBar
+        wPx := wNeck
+    else if entryMode == "4-OTE 0.5-0.618"
+        float zLo = f_wLevel(oteLo)
+        float zHi = f_wLevel(oteHi)
+        wEntry := low <= zHi and low >= zLo and bar_index > wBreakBar
+        wPx := math.min(close, zHi)
+    else if entryMode == "5-Imbalans (FVG)"
+        wEntry := not na(wImbBot) and low <= wImbTop and low >= wImbBot and bar_index > wBreakBar
+        wPx := math.min(close, wImbTop)
+    else if entryMode == "6-Order block"
+        wEntry := not na(wObBot) and low <= wObTop and low >= wObBot and bar_index > wBreakBar
+        wPx := math.min(close, wObTop)
+
+bool mEntry = false
+float mPx = na
+if mSetup and mRange > 0 and strategy.position_size == 0 and inDate and barstate.isconfirmed
+    if entryMode == "1-Majburiy sham"
+        mEntry := bar_index == mBreakBar
+        mPx := close
+    else if entryMode == "2-Neckline retest"
+        mEntry := high >= mNeck and close < mNeck and bar_index > mBreakBar
+        mPx := mNeck
+    else if entryMode == "4-OTE 0.5-0.618"
+        float zHi = f_mLevel(oteLo)
+        float zLo = f_mLevel(oteHi)
+        mEntry := high >= zLo and high <= zHi and bar_index > mBreakBar
+        mPx := math.max(close, zLo)
+    else if entryMode == "5-Imbalans (FVG)"
+        mEntry := not na(mImbBot) and high >= mImbBot and high <= mImbTop and bar_index > mBreakBar
+        mPx := math.max(close, mImbBot)
+    else if entryMode == "6-Order block"
+        mEntry := not na(mObBot) and high >= mObBot and high <= mObTop and bar_index > mBreakBar
+        mPx := math.max(close, mObBot)
+
+// ---------------------------------------------------------------
+//  SAVDO
+// ---------------------------------------------------------------
+var float posEntry = na
+var float posSL = na
+var float posTP1 = na
+var float posTP2 = na
+var bool  posLong = false
+var bool  tp1Hit = false
+var float posR = na
+var int   tp1Cnt = 0
+var int   tp2Cnt = 0
+var int   entriesW = 0
+var int   entriesM = 0
+
+slipVal = slipTick * syminfo.mintick
+
+if wEntry
+    float e  = wPx
+    float sl = wFib0 - wRange * slBufPct / 100
+    float r  = e - sl
+    if r > 0
+        float t1 = f_wLevel(tp1Fib)
+        float t2 = f_wLevel(tp2Fib)
+        if t1 > e
+            float rAmt = riskMode == "Dollar $" ? riskUsd : strategy.equity * riskPct / 100
+            float q = rAmt / (r + slipVal)
+            strategy.entry("L", strategy.long, qty = q, comment = "W|" + entryMode)
+            strategy.exit("Lx1", "L", qty_percent = tp1Pct, stop = sl - slipVal, limit = t1)
+            if tp1Pct < 100
+                strategy.exit("Lx2", "L", stop = sl - slipVal, limit = t2)
+            posEntry := e
+            posSL := sl
+            posTP1 := t1
+            posTP2 := t2
+            posLong := true
+            tp1Hit := false
+            posR := r
+            entriesW += 1
+
+if mEntry
+    float e  = mPx
+    float sl = mFib0 + mRange * slBufPct / 100
+    float r  = sl - e
+    if r > 0
+        float t1 = f_mLevel(tp1Fib)
+        float t2 = f_mLevel(tp2Fib)
+        if t1 < e
+            float rAmt = riskMode == "Dollar $" ? riskUsd : strategy.equity * riskPct / 100
+            float q = rAmt / (r + slipVal)
+            strategy.entry("S", strategy.short, qty = q, comment = "M|" + entryMode)
+            strategy.exit("Sx1", "S", qty_percent = tp1Pct, stop = sl + slipVal, limit = t1)
+            if tp1Pct < 100
+                strategy.exit("Sx2", "S", stop = sl + slipVal, limit = t2)
+            posEntry := e
+            posSL := sl
+            posTP1 := t1
+            posTP2 := t2
+            posLong := false
+            tp1Hit := false
+            posR := r
+            entriesM += 1
+
+// TP1 urilganini aniqlash -> SL breakevenga
+if strategy.position_size != 0 and not na(posTP1) and not tp1Hit
+    bool hit = posLong ? high >= posTP1 : low <= posTP1
+    if hit
+        tp1Hit := true
+        tp1Cnt += 1
+        if useBEafter and tp1Pct < 100
+            strategy.exit("Sx2", "S", stop = posEntry, limit = posTP2)
+            strategy.exit("Lx2", "L", stop = posEntry, limit = posTP2)
+
+if strategy.position_size != 0 and tp1Hit and not na(posTP2)
+    if (posLong and high >= posTP2) or (not posLong and low <= posTP2)
+        tp2Cnt += 1
+        posTP2 := na
+
+if strategy.position_size == 0
+    posR := na
+
+if useDate and time > dtEnd and strategy.position_size != 0
+    strategy.close_all(comment = "Davr tugadi")
+
+// ---------------------------------------------------------------
+//  CHIZMALAR
+// ---------------------------------------------------------------
+if showViz and wBreak
+    line.new(wMin1B, wMin1, wMin2B, wMin2, color = color.new(color.lime, 40), style = line.style_dotted)
+    line.new(wNeckB, wNeck, bar_index, wNeck, color = color.new(color.orange, 20), width = 2)
+    label.new(bar_index, wNeck, "W", style = label.style_label_down, color = color.new(color.green, 30), textcolor = color.white, size = size.tiny)
+if showViz and mBreak
+    line.new(mMax1B, mMax1, mMax2B, mMax2, color = color.new(color.red, 40), style = line.style_dotted)
+    line.new(mNeckB, mNeck, bar_index, mNeck, color = color.new(color.orange, 20), width = 2)
+    label.new(bar_index, mNeck, "M", style = label.style_label_up, color = color.new(color.red, 30), textcolor = color.white, size = size.tiny)
+
+plot(strategy.position_size != 0 ? posSL  : na, "SL",  color.new(color.red, 0),   2, plot.style_linebr)
+plot(strategy.position_size != 0 ? posTP1 : na, "TP1", color.new(color.green, 0), 2, plot.style_linebr)
+plot(strategy.position_size != 0 ? posTP2 : na, "TP2", color.new(color.teal, 30), 1, plot.style_linebr)
+plot(strategy.position_size != 0 ? posEntry : na, "Entry", color.new(color.blue, 0), 1, plot.style_linebr)
+
+// ---------------------------------------------------------------
+//  STATISTIKA JADVALI
+// ---------------------------------------------------------------
+var table st = na
+if showStat and barstate.islast
+    table.delete(st)
+    st := table.new(position.top_right, 2, 13, border_width = 1, frame_color = color.new(color.gray, 50), frame_width = 1)
+    cG = color.new(color.green, 60)
+    cB = color.new(color.red, 60)
+    cN = color.new(color.gray, 60)
+    cH = color.new(color.black, 25)
+    table.cell(st, 0, 0, "1.618 LEGENDA", text_color = color.white, bgcolor = color.new(color.blue, 35))
+    table.cell(st, 1, 0, syminfo.ticker + " " + timeframe.period, text_color = color.white, bgcolor = color.new(color.blue, 35))
+
+    table.cell(st, 0, 1, "Kirish usuli", text_color = color.white, text_size = size.small, bgcolor = cH)
+    table.cell(st, 1, 1, entryMode, text_color = color.white, text_size = size.small, bgcolor = color.new(color.purple, 55))
+
+    table.cell(st, 0, 2, "W / M topildi", text_color = color.white, text_size = size.small, bgcolor = cH)
+    table.cell(st, 1, 2, str.tostring(totalW) + " / " + str.tostring(totalM) + "  (jami " + str.tostring(totalW + totalM) + ")", text_color = color.white, text_size = size.small, bgcolor = cN)
+
+    table.cell(st, 0, 3, "Savdo ochildi", text_color = color.white, text_size = size.small, bgcolor = cH)
+    convPct = (totalW + totalM) > 0 ? (entriesW + entriesM) * 100.0 / (totalW + totalM) : 0
+    table.cell(st, 1, 3, str.tostring(entriesW + entriesM) + "  (" + str.tostring(convPct, "#.#") + "% patterndan)", text_color = color.white, text_size = size.small, bgcolor = cN)
+
+    nTr = strategy.closedtrades
+    table.cell(st, 0, 4, "Yopilgan savdo", text_color = color.white, text_size = size.small, bgcolor = cH)
+    table.cell(st, 1, 4, str.tostring(nTr), text_color = color.white, text_size = size.small, bgcolor = nTr >= 30 ? cG : color.new(color.orange, 60))
+
+    // "GARANT" TEKSHIRUVI
+    garPct = (entriesW + entriesM) > 0 ? tp1Cnt * 100.0 / (entriesW + entriesM) : 0
+    table.cell(st, 0, 5, "TP1 1.618 'GARANT'", text_color = color.white, text_size = size.small, bgcolor = cH)
+    table.cell(st, 1, 5, str.tostring(tp1Cnt) + "  =  " + str.tostring(garPct, "#.#") + "%" + (garPct >= 99 ? "  GARANT!" : "  (100% EMAS)"), text_color = color.white, text_size = size.small, bgcolor = garPct >= 99 ? cG : cB)
+
+    prPct = (entriesW + entriesM) > 0 ? tp2Cnt * 100.0 / (entriesW + entriesM) : 0
+    table.cell(st, 0, 6, "TP2 2.618 'prognoz'", text_color = color.white, text_size = size.small, bgcolor = cH)
+    table.cell(st, 1, 6, str.tostring(tp2Cnt) + "  =  " + str.tostring(prPct, "#.#") + "%", text_color = color.white, text_size = size.small, bgcolor = cN)
+
+    wr = nTr > 0 ? strategy.wintrades * 100.0 / nTr : 0
+    table.cell(st, 0, 7, "Win rate", text_color = color.white, text_size = size.small, bgcolor = cH)
+    table.cell(st, 1, 7, str.tostring(wr, "#.#") + "%", text_color = color.white, text_size = size.small, bgcolor = cN)
+
+    table.cell(st, 0, 8, "Net profit", text_color = color.white, text_size = size.small, bgcolor = cH)
+    table.cell(st, 1, 8, str.tostring(strategy.netprofit, "#.##"), text_color = color.white, text_size = size.small, bgcolor = strategy.netprofit > 0 ? cG : cB)
+
+    table.cell(st, 0, 9, "Max DD", text_color = color.white, text_size = size.small, bgcolor = cH)
+    table.cell(st, 1, 9, str.tostring(strategy.max_drawdown, "#.##"), text_color = color.white, text_size = size.small, bgcolor = cN)
+
+    pf = strategy.grossloss > 0 ? strategy.grossprofit / strategy.grossloss : 0
+    table.cell(st, 0, 10, "Profit factor", text_color = color.white, text_size = size.small, bgcolor = cH)
+    table.cell(st, 1, 10, str.tostring(pf, "#.###"), text_color = color.white, text_size = size.small, bgcolor = pf >= 1.3 ? cG : cB)
+
+    rf = strategy.max_drawdown > 0 ? strategy.netprofit / strategy.max_drawdown : 0
+    table.cell(st, 0, 11, "Recovery factor", text_color = color.white, text_size = size.small, bgcolor = cH)
+    table.cell(st, 1, 11, str.tostring(rf, "#.##") + (rf >= 2 ? "  OK" : "  past"), text_color = color.white, text_size = size.small, bgcolor = rf >= 2 ? cG : cB)
+
+    expR = nTr > 0 ? strategy.netprofit / nTr / (riskMode == "Dollar $" ? riskUsd : strategy.initial_capital * riskPct / 100) : 0
+    table.cell(st, 0, 12, "Expectancy (R)", text_color = color.white, text_size = size.small, bgcolor = cH)
+    table.cell(st, 1, 12, str.tostring(expR, "#.###") + "R", text_color = color.white, text_size = size.small, bgcolor = expR > 0 ? cG : cB)
+
+alertcondition(wEntry, "W LONG", "1.618 W pattern LONG")
+alertcondition(mEntry, "M SHORT", "1.618 M pattern SHORT")
