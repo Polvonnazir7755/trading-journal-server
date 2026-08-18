@@ -52,7 +52,7 @@ bodyBreak = input.bool(true, "Neckline TANA bilan yorilsin", group = gP,
      tooltip = "Video qat'iy talab qiladi: soya bilan emas, tana bilan.\nO'chirsangiz — soya bilan yorish ham qabul qilinadi (taqqoslash uchun)")
 
 gE = "KIRISH NUQTASI (bittasini tanlang)"
-entryMode = input.string("OTE 0.5-0.618", "Kirish usuli", group = gE,
+entryMode = input.string("4-OTE 0.5-0.618", "Kirish usuli", group = gE,
      options = ["1-Majburiy sham", "2-Neckline retest", "4-OTE 0.5-0.618", "5-Imbalans (FVG)", "6-Order block"],
      tooltip = "Video 6 ta nuqta beradi. Har birini ALOHIDA sinang!\nMening hisobim: OTE eng yaxshi (RR 2.15), majburiy sham eng yomon (RR 0.61)")
 oteLo     = input.float(0.5,   "OTE quyi chegara", minval = 0.1, maxval = 0.9, step = 0.01, group = gE)
@@ -203,8 +203,10 @@ if not na(ph) and array.size(phVal) >= 2 and array.size(plVal) >= 1
 // ---------------------------------------------------------------
 //  NECKLINE YORILISHI (video: TANA bilan!)
 // ---------------------------------------------------------------
-bool wBreak = wArmed and not na(wNeck) and (bodyBreak ? (close > wNeck and open <= wNeck) or (close > wNeck and close[1] <= wNeck) : high > wNeck)
-bool mBreak = mArmed and not na(mNeck) and (bodyBreak ? (close < mNeck and open >= mNeck) or (close < mNeck and close[1] >= mNeck) : low  < mNeck)
+bool wBodyBrk = close > wNeck and (open <= wNeck or close[1] <= wNeck)
+bool wBreak = wArmed and not na(wNeck) and (bodyBreak ? wBodyBrk : high > wNeck)
+bool mBodyBrk = close < mNeck and (open >= mNeck or close[1] >= mNeck)
+bool mBreak = mArmed and not na(mNeck) and (bodyBreak ? mBodyBrk : low < mNeck)
 
 // --- setup holati (yorilgandan keyin kirish kutiladi)
 var bool  wSetup = false
@@ -285,8 +287,8 @@ inDate = not useDate or (time >= dtStart and time <= dtEnd)
 wRange = wFib1 - wFib0
 mRange = mFib0 - mFib1
 
-f_wLevel(float f) => wFib0 + wRange * f
-f_mLevel(float f) => mFib0 - mRange * f
+// fib darajasi: 0 = oxirgi minimum, 1 = yorgan shamning tanasi
+f_lvl(float base, float rng, float f) => base + rng * f
 
 bool wEntry = false
 float wPx = na
@@ -298,8 +300,8 @@ if wSetup and wRange > 0 and strategy.position_size == 0 and inDate and barstate
         wEntry := low <= wNeck and close > wNeck and bar_index > wBreakBar
         wPx := wNeck
     else if entryMode == "4-OTE 0.5-0.618"
-        float zLo = f_wLevel(oteLo)
-        float zHi = f_wLevel(oteHi)
+        float zLo = f_lvl(wFib0, wRange, oteLo)
+        float zHi = f_lvl(wFib0, wRange, oteHi)
         wEntry := low <= zHi and low >= zLo and bar_index > wBreakBar
         wPx := math.min(close, zHi)
     else if entryMode == "5-Imbalans (FVG)"
@@ -319,8 +321,8 @@ if mSetup and mRange > 0 and strategy.position_size == 0 and inDate and barstate
         mEntry := high >= mNeck and close < mNeck and bar_index > mBreakBar
         mPx := mNeck
     else if entryMode == "4-OTE 0.5-0.618"
-        float zHi = f_mLevel(oteLo)
-        float zLo = f_mLevel(oteHi)
+        float zHi = f_lvl(mFib0, -mRange, oteLo)
+        float zLo = f_lvl(mFib0, -mRange, oteHi)
         mEntry := high >= zLo and high <= zHi and bar_index > mBreakBar
         mPx := math.max(close, zLo)
     else if entryMode == "5-Imbalans (FVG)"
@@ -352,8 +354,8 @@ if wEntry
     float sl = wFib0 - wRange * slBufPct / 100
     float r  = e - sl
     if r > 0
-        float t1 = f_wLevel(tp1Fib)
-        float t2 = f_wLevel(tp2Fib)
+        float t1 = f_lvl(wFib0, wRange, tp1Fib)
+        float t2 = f_lvl(wFib0, wRange, tp2Fib)
         if t1 > e
             float rAmt = riskMode == "Dollar $" ? riskUsd : strategy.equity * riskPct / 100
             float q = rAmt / (r + slipVal)
@@ -375,8 +377,8 @@ if mEntry
     float sl = mFib0 + mRange * slBufPct / 100
     float r  = sl - e
     if r > 0
-        float t1 = f_mLevel(tp1Fib)
-        float t2 = f_mLevel(tp2Fib)
+        float t1 = f_lvl(mFib0, -mRange, tp1Fib)
+        float t2 = f_lvl(mFib0, -mRange, tp2Fib)
         if t1 < e
             float rAmt = riskMode == "Dollar $" ? riskUsd : strategy.equity * riskPct / 100
             float q = rAmt / (r + slipVal)
@@ -400,8 +402,10 @@ if strategy.position_size != 0 and not na(posTP1) and not tp1Hit
         tp1Hit := true
         tp1Cnt += 1
         if useBEafter and tp1Pct < 100
-            strategy.exit("Sx2", "S", stop = posEntry, limit = posTP2)
-            strategy.exit("Lx2", "L", stop = posEntry, limit = posTP2)
+            if posLong
+                strategy.exit("Lx2", "L", stop = posEntry, limit = posTP2)
+            else
+                strategy.exit("Sx2", "S", stop = posEntry, limit = posTP2)
 
 if strategy.position_size != 0 and tp1Hit and not na(posTP2)
     if (posLong and high >= posTP2) or (not posLong and low <= posTP2)
