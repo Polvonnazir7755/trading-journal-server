@@ -78,6 +78,26 @@ riskPct  = input.float(5.0, "Risk %", minval = 0.1, step = 0.5, group = gR,
 riskUsd  = input.float(20.0, "Risk $", minval = 1.0, step = 5.0, group = gR)
 slipTick = input.int(2, "Slippage (tick)", minval = 0, group = gR)
 
+gRD = "RADAR — yechilmagan likvidlik (EQH/EQL)"
+useRadar   = input.bool(false, "Radarni yoqish", group = gRD,
+     tooltip = "TP yo'lidagi YECHILMAGAN likvidlikni (EQH/EQL) topadi.\nManba mantiq: LuxAlgo EQH/EQL Liquidity Zones.\nDefault O'CHIQ \u2014 asl 1.618 mantiqiga tegmaydi.")
+radarMode  = input.string("Faqat o'lchov", "Radar rejimi", group = gRD,
+     options = ["Faqat o'lchov", "Dinamik TP", "Kirish filtri", "Hammasi"],
+     tooltip = "Faqat o'lchov = savdoga TA'SIR QILMAYDI, faqat statistika yig'adi (AVVAL SHUNI ISHLATING)\nDinamik TP = TP ni to'siq oldiga qo'yadi\nKirish filtri = to'siq juda yaqin bo'lsa savdo ochmaydi\nHammasi = ikkalasi")
+eqLeft     = input.int(10, "EQ pivot chap", minval = 1, group = gRD)
+eqRight    = input.int(2,  "EQ pivot o'ng", minval = 1, group = gRD,
+     tooltip = "Pivot tasdig'i uchun o'ngdagi barlar. Kechikish = shu qiymat.")
+eqTolPct   = input.float(0.03, "Tenglik chegarasi (%)", minval = 0.0, step = 0.01, group = gRD,
+     tooltip = "Ikki cho'qqi/tub 'teng' hisoblanishi uchun maksimal farq")
+eqMaxZones = input.int(60, "Maks faol zona", minval = 5, maxval = 200, group = gRD)
+radarBuf   = input.float(0.15, "TP buferi (R)", minval = 0.0, step = 0.05, group = gRD,
+     tooltip = "TP to'siqdan shuncha R oldin qo'yiladi")
+minTPr     = input.float(0.8, "Minimal TP (R)", minval = 0.1, step = 0.1, group = gRD,
+     tooltip = "To'siq juda yaqin bo'lsa \u2014 shundan kam TP qo'yilmaydi")
+blockBelow = input.float(1.0, "Kirish filtri: min bo'sh yo'l (R)", minval = 0.1, step = 0.1, group = gRD,
+     tooltip = "To'siqqacha shundan kam bo'lsa savdoga kirmaydi")
+showEQ     = input.bool(true, "EQH/EQL zonalarini chizish", group = gRD)
+
 gV = "KO'RINISH"
 showViz  = input.bool(true, "Chizmalarni ko'rsatish", group = gV)
 showStat = input.bool(true, "Statistika jadvali", group = gV)
@@ -87,8 +107,120 @@ useDate  = input.bool(false, "Sana oralig'ini cheklash", group = gD)
 dtStart  = input.time(timestamp("01 Jul 2026 00:00 +0000"), "Boshlanish", group = gD)
 dtEnd    = input.time(timestamp("14 Aug 2026 23:59 +0000"), "Tugash", group = gD)
 
+// ===============================================================
+//  RADAR: EQH/EQL YECHILMAGAN LIKVIDLIK
+//  Mantiq manbasi: LuxAlgo "EQH/EQL Liquidity Zones"
+//  Bu yerda faqat SAVDO uchun kerakli qism: sweepLevel + isSwept
+// ===============================================================
+type EqZone
+    float sweepLevel      // supurilish narxi (EQH uchun top, EQL uchun bottom)
+    float vol             // ikki pivot hajmi yig'indisi
+    int   bornBar         // qachon yaratilgan
+    bool  isHigh          // true = EQH (yuqorida), false = EQL (pastda)
+    box   bx
+
+var EqZone[] eqZones = array.new<EqZone>()
+var float[]  eqHiVal = array.new_float()
+var int[]    eqHiBar = array.new_int()
+var float[]  eqHiVol = array.new_float()
+var float[]  eqLoVal = array.new_float()
+var int[]    eqLoBar = array.new_int()
+var float[]  eqLoVol = array.new_float()
+
+float eqPH = useRadar ? ta.pivothigh(eqLeft, eqRight) : na
+float eqPL = useRadar ? ta.pivotlow(eqLeft, eqRight)  : na
+
+// --- yangi EQH
+if not na(eqPH)
+    int   pIdx = bar_index - eqRight
+    float pVol = nz(volume[eqRight], 1.0)
+    if array.size(eqHiVal) > 0
+        for i = 0 to array.size(eqHiVal) - 1
+            float prevP = array.get(eqHiVal, i)
+            if prevP > 0 and math.abs(eqPH - prevP) / prevP * 100 <= eqTolPct
+                float top = math.max(eqPH, prevP)
+                float bot = math.min(eqPH, prevP)
+                box bx = na
+                if showEQ and showViz
+                    bx := box.new(array.get(eqHiBar, i), top, bar_index, bot,
+                         border_color = color.new(#f23645, 40), bgcolor = color.new(#f23645, 85))
+                array.push(eqZones, EqZone.new(top, array.get(eqHiVol, i) + pVol, bar_index, true, bx))
+                break
+    array.unshift(eqHiVal, eqPH)
+    array.unshift(eqHiBar, pIdx)
+    array.unshift(eqHiVol, pVol)
+    if array.size(eqHiVal) > 50
+        array.pop(eqHiVal)
+        array.pop(eqHiBar)
+        array.pop(eqHiVol)
+
+// --- yangi EQL
+if not na(eqPL)
+    int   pIdx = bar_index - eqRight
+    float pVol = nz(volume[eqRight], 1.0)
+    if array.size(eqLoVal) > 0
+        for i = 0 to array.size(eqLoVal) - 1
+            float prevP = array.get(eqLoVal, i)
+            if prevP > 0 and math.abs(eqPL - prevP) / prevP * 100 <= eqTolPct
+                float top = math.max(eqPL, prevP)
+                float bot = math.min(eqPL, prevP)
+                box bx = na
+                if showEQ and showViz
+                    bx := box.new(array.get(eqLoBar, i), top, bar_index, bot,
+                         border_color = color.new(#089981, 40), bgcolor = color.new(#089981, 85))
+                array.push(eqZones, EqZone.new(bot, array.get(eqLoVol, i) + pVol, bar_index, false, bx))
+                break
+    array.unshift(eqLoVal, eqPL)
+    array.unshift(eqLoBar, pIdx)
+    array.unshift(eqLoVol, pVol)
+    if array.size(eqLoVal) > 50
+        array.pop(eqLoVal)
+        array.pop(eqLoBar)
+        array.pop(eqLoVol)
+
+// --- supurilganlarni olib tashlash (faqat YECHILMAGAN qoladi)
+var int eqSweptCnt = 0
+if array.size(eqZones) > 0
+    for i = array.size(eqZones) - 1 to 0
+        if i >= array.size(eqZones)
+            continue
+        EqZone z = array.get(eqZones, i)
+        bool swept = bar_index > z.bornBar and (z.isHigh ? high > z.sweepLevel : low < z.sweepLevel)
+        if swept
+            eqSweptCnt += 1
+            if not na(z.bx)
+                box.delete(z.bx)
+            array.remove(eqZones, i)
+        else
+            if not na(z.bx)
+                box.set_right(z.bx, bar_index)
+    while array.size(eqZones) > eqMaxZones
+        EqZone z0 = array.get(eqZones, 0)
+        if not na(z0.bx)
+            box.delete(z0.bx)
+        array.remove(eqZones, 0)
+
+// --- radar: entry va target orasidagi eng yaqin YECHILMAGAN to'siq
+//     isLong = true  -> yuqoridagi EQH lar to'siq
+//     isLong = false -> pastdagi EQL lar to'siq
+f_radar(bool isLong, float entryPx, float targetPx) =>
+    float nearest = na
+    float nvol    = 0.0
+    int   cnt     = 0
+    if array.size(eqZones) > 0
+        for z in eqZones
+            float lv = z.sweepLevel
+            bool inPath = isLong ? (lv > entryPx and lv < targetPx) : (lv < entryPx and lv > targetPx)
+            if inPath
+                cnt += 1
+                bool closer = na(nearest) or (isLong ? lv < nearest : lv > nearest)
+                if closer
+                    nearest := lv
+                    nvol    := z.vol
+    [nearest, cnt, nvol]
+
 // ---------------------------------------------------------------
-//  PIVOTLAR
+//  PIVOTLAR (W/M pattern uchun)
 // ---------------------------------------------------------------
 ph = ta.pivothigh(high, pivLen, pivLen)
 pl = ta.pivotlow(low,  pivLen, pivLen)
@@ -349,6 +481,18 @@ var int   tp2Cnt = 0
 var int   entriesW = 0
 var int   entriesM = 0
 
+// --- RADAR statistikasi (H1 gipotezasini sinash uchun) ---
+var int   radBlocked   = 0    // kirish filtri bloklagan savdolar
+var int   radTPcut     = 0    // TP qisqartirilgan savdolar
+var int   nClear       = 0    // yo'lda to'siq YO'Q savdolar
+var int   nObst        = 0    // yo'lda to'siq BOR savdolar
+var int   winClear     = 0    // to'siqsiz savdolardan TP1 ga yetganlar
+var int   winObst      = 0    // to'siqli savdolardan TP1 ga yetganlar
+var bool  curHadObst   = false
+var float curObstDist  = na
+var float sumObstDist  = 0.0
+var int   prevClosedN  = 0
+
 slipVal = slipTick * syminfo.mintick
 
 if wEntry
@@ -359,20 +503,48 @@ if wEntry
         float t1 = f_lvl(wFib0, wRange, tp1Fib)
         float t2 = f_lvl(wFib0, wRange, tp2Fib)
         if t1 > e
-            float rAmt = riskMode == "Dollar $" ? riskUsd : strategy.equity * riskPct / 100
-            float q = rAmt / (r + slipVal)
-            strategy.entry("L", strategy.long, qty = q, comment = "W|" + entryMode)
-            strategy.exit("Lx1", "L", qty_percent = tp1Pct, stop = sl - slipVal, limit = t1)
-            if tp1Pct < 100
-                strategy.exit("Lx2", "L", stop = sl - slipVal, limit = t2)
-            posEntry := e
-            posSL := sl
-            posTP1 := t1
-            posTP2 := t2
-            posLong := true
-            tp1Hit := false
-            posR := r
-            entriesW += 1
+            // ---------- RADAR ----------
+            bool  blocked = false
+            bool  hadObst = false
+            float obstR   = na
+            if useRadar
+                [obst, ocnt, ovol] = f_radar(true, e, t1)
+                if not na(obst)
+                    hadObst := true
+                    obstR   := (obst - e) / r
+                    if (radarMode == "Kirish filtri" or radarMode == "Hammasi") and obstR < blockBelow
+                        blocked := true
+                    if (radarMode == "Dinamik TP" or radarMode == "Hammasi") and not blocked
+                        float newT1 = obst - r * radarBuf
+                        if newT1 < t1 and newT1 > e
+                            t1 := math.max(newT1, e + r * minTPr)
+                            radTPcut += 1
+            if blocked
+                radBlocked += 1
+            else
+                float rAmt = riskMode == "Dollar $" ? riskUsd : strategy.equity * riskPct / 100
+                float q = rAmt / (r + slipVal)
+                string tag = "W|" + entryMode + (useRadar ? (hadObst ? "|OBST" : "|CLEAR") : "")
+                strategy.entry("L", strategy.long, qty = q, comment = tag)
+                strategy.exit("Lx1", "L", qty_percent = tp1Pct, stop = sl - slipVal, limit = t1)
+                if tp1Pct < 100
+                    strategy.exit("Lx2", "L", stop = sl - slipVal, limit = t2)
+                posEntry := e
+                posSL := sl
+                posTP1 := t1
+                posTP2 := t2
+                posLong := true
+                tp1Hit := false
+                posR := r
+                entriesW += 1
+                curHadObst  := hadObst
+                curObstDist := obstR
+                if useRadar
+                    if hadObst
+                        nObst += 1
+                        sumObstDist += obstR
+                    else
+                        nClear += 1
 
 if mEntry
     float e  = mPx
@@ -382,20 +554,48 @@ if mEntry
         float t1 = f_lvl(mFib0, -mRange, tp1Fib)
         float t2 = f_lvl(mFib0, -mRange, tp2Fib)
         if t1 < e
-            float rAmt = riskMode == "Dollar $" ? riskUsd : strategy.equity * riskPct / 100
-            float q = rAmt / (r + slipVal)
-            strategy.entry("S", strategy.short, qty = q, comment = "M|" + entryMode)
-            strategy.exit("Sx1", "S", qty_percent = tp1Pct, stop = sl + slipVal, limit = t1)
-            if tp1Pct < 100
-                strategy.exit("Sx2", "S", stop = sl + slipVal, limit = t2)
-            posEntry := e
-            posSL := sl
-            posTP1 := t1
-            posTP2 := t2
-            posLong := false
-            tp1Hit := false
-            posR := r
-            entriesM += 1
+            // ---------- RADAR ----------
+            bool  blocked = false
+            bool  hadObst = false
+            float obstR   = na
+            if useRadar
+                [obst, ocnt, ovol] = f_radar(false, e, t1)
+                if not na(obst)
+                    hadObst := true
+                    obstR   := (e - obst) / r
+                    if (radarMode == "Kirish filtri" or radarMode == "Hammasi") and obstR < blockBelow
+                        blocked := true
+                    if (radarMode == "Dinamik TP" or radarMode == "Hammasi") and not blocked
+                        float newT1 = obst + r * radarBuf
+                        if newT1 > t1 and newT1 < e
+                            t1 := math.min(newT1, e - r * minTPr)
+                            radTPcut += 1
+            if blocked
+                radBlocked += 1
+            else
+                float rAmt = riskMode == "Dollar $" ? riskUsd : strategy.equity * riskPct / 100
+                float q = rAmt / (r + slipVal)
+                string tag = "M|" + entryMode + (useRadar ? (hadObst ? "|OBST" : "|CLEAR") : "")
+                strategy.entry("S", strategy.short, qty = q, comment = tag)
+                strategy.exit("Sx1", "S", qty_percent = tp1Pct, stop = sl + slipVal, limit = t1)
+                if tp1Pct < 100
+                    strategy.exit("Sx2", "S", stop = sl + slipVal, limit = t2)
+                posEntry := e
+                posSL := sl
+                posTP1 := t1
+                posTP2 := t2
+                posLong := false
+                tp1Hit := false
+                posR := r
+                entriesM += 1
+                curHadObst  := hadObst
+                curObstDist := obstR
+                if useRadar
+                    if hadObst
+                        nObst += 1
+                        sumObstDist += obstR
+                    else
+                        nClear += 1
 
 // TP1 urilganini aniqlash -> SL breakevenga
 if strategy.position_size != 0 and not na(posTP1) and not tp1Hit
@@ -403,6 +603,11 @@ if strategy.position_size != 0 and not na(posTP1) and not tp1Hit
     if hit
         tp1Hit := true
         tp1Cnt += 1
+        if useRadar
+            if curHadObst
+                winObst += 1
+            else
+                winClear += 1
         if useBEafter and tp1Pct < 100
             if posLong
                 strategy.exit("Lx2", "L", stop = posEntry, limit = posTP2)
@@ -443,7 +648,7 @@ plot(strategy.position_size != 0 ? posEntry : na, "Entry", color.new(color.blue,
 var table st = na
 if showStat and barstate.islast
     table.delete(st)
-    st := table.new(position.top_right, 2, 13, border_width = 1, frame_color = color.new(color.gray, 50), frame_width = 1)
+    st := table.new(position.top_right, 2, 18, border_width = 1, frame_color = color.new(color.gray, 50), frame_width = 1)
     cG = color.new(color.green, 60)
     cB = color.new(color.red, 60)
     cN = color.new(color.gray, 60)
@@ -493,6 +698,26 @@ if showStat and barstate.islast
     table.cell(st, 1, 11, str.tostring(rf, "#.##") + (rf >= 2 ? "  OK" : "  past"), text_color = color.white, text_size = size.small, bgcolor = rf >= 2 ? cG : cB)
 
     expR = nTr > 0 ? strategy.netprofit / nTr / (riskMode == "Dollar $" ? riskUsd : strategy.initial_capital * riskPct / 100) : 0
+    // ---------- RADAR STATISTIKASI (H1 gipotezasi) ----------
+    table.cell(st, 0, 13, "RADAR", text_color = color.white, text_size = size.small, bgcolor = color.new(color.blue, 40))
+    table.cell(st, 1, 13, useRadar ? radarMode : "o'chiq", text_color = color.white, text_size = size.small, bgcolor = useRadar ? color.new(color.blue, 55) : cN)
+
+    table.cell(st, 0, 14, "  Faol EQH/EQL", text_color = color.white, text_size = size.small, bgcolor = cH)
+    table.cell(st, 1, 14, useRadar ? str.tostring(array.size(eqZones)) + " yechilmagan / " + str.tostring(eqSweptCnt) + " supurilgan" : "-", text_color = color.white, text_size = size.small, bgcolor = cN)
+
+    int totRad = nClear + nObst
+    table.cell(st, 0, 15, "  Yo'l toza / to'siqli", text_color = color.white, text_size = size.small, bgcolor = cH)
+    table.cell(st, 1, 15, useRadar and totRad > 0 ? str.tostring(nClear) + " / " + str.tostring(nObst) + "  (" + str.tostring(nObst * 100.0 / totRad, "#.#") + "% to'siqli)" : "-", text_color = color.white, text_size = size.small, bgcolor = cN)
+
+    float wrClear = nClear > 0 ? winClear * 100.0 / nClear : 0
+    float wrObst  = nObst  > 0 ? winObst  * 100.0 / nObst  : 0
+    table.cell(st, 0, 16, "  TP1%: toza vs to'siqli", text_color = color.white, text_size = size.small, bgcolor = cH)
+    table.cell(st, 1, 16, useRadar and totRad > 0 ? str.tostring(wrClear, "#.#") + "%  vs  " + str.tostring(wrObst, "#.#") + "%" : "-", text_color = color.white, text_size = size.small, bgcolor = useRadar and nClear >= 10 and nObst >= 10 ? (wrClear > wrObst ? cG : cB) : cN)
+
+    table.cell(st, 0, 17, "  Bloklandi / TP kesildi", text_color = color.white, text_size = size.small, bgcolor = cH)
+    float avgObst = nObst > 0 ? sumObstDist / nObst : 0
+    table.cell(st, 1, 17, useRadar ? str.tostring(radBlocked) + " / " + str.tostring(radTPcut) + "   (o'rt. to'siq " + str.tostring(avgObst, "#.##") + "R)" : "-", text_color = color.white, text_size = size.small, bgcolor = cN)
+
     table.cell(st, 0, 12, "Expectancy (R)", text_color = color.white, text_size = size.small, bgcolor = cH)
     table.cell(st, 1, 12, str.tostring(expR, "#.###") + "R", text_color = color.white, text_size = size.small, bgcolor = expR > 0 ? cG : cB)
 
