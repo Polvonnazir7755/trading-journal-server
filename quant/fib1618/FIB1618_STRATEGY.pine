@@ -70,6 +70,20 @@ useBEafter = input.bool(true, "TP1 dan keyin SL -> breakeven", group = gX,
 slBufPct  = input.float(2.0, "SL bufer (% dan bo'y)", minval = 0, step = 0.5, group = gX,
      tooltip = "SL minimumdan shuncha pastga qo'yiladi (W bo'yining % i)")
 
+gC = "REALISTIK XARAJAT (real hisobga yaqinlashtirish)"
+useCost   = input.bool(false, "Realistik xarajatni yoqish", group = gC,
+     tooltip = "Backtest default 0 xarajat bilan ishlaydi \u2014 bu ALDAMCHI.\nBu yerda spred + komissiya + slippage + swap hisobga olinadi.\nHar savdo natijasidan ayiriladi.")
+costSpread = input.float(0.2, "Spred (pip)", minval = 0.0, step = 0.1, group = gC,
+     tooltip = "EURUSD raw ~0.2, standart ~1.0, XAUUSD ~2.0 (0.20 dollar)")
+costComm   = input.float(0.7, "Komissiya (pip ekvivalent)", minval = 0.0, step = 0.1, group = gC,
+     tooltip = "Exness Raw: $3.5/lot bir tomonga = 0.35 pip x 2 = 0.7 pip")
+costSlip   = input.float(0.4, "Slippage (pip)", minval = 0.0, step = 0.1, group = gC,
+     tooltip = "Kirish + chiqishdagi o'rtacha siljish")
+costSwap   = input.float(0.6, "Swap (pip, o'rtacha)", minval = 0.0, step = 0.1, group = gC,
+     tooltip = "Pozitsiyani tunga qoldirish narxi. M30 da ~1-2 kun ushlanadi.")
+pipSize    = input.float(0.0001, "1 pip qiymati (narx birligida)", minval = 0.00001, step = 0.00001, group = gC,
+     tooltip = "EURUSD/GBPUSD = 0.0001\nUSDJPY = 0.01\nXAUUSD = 0.10\nAgar 0 qoldirilsa syminfo.mintick*10 ishlatiladi")
+
 gR = "RISK"
 riskMode = input.string("Foiz %", "Risk turi", options = ["Foiz %", "Dollar $"], group = gR,
      tooltip = "Foiz % = compounding (hisob o'sgani sari pozitsiya ham o'sadi).\nDollar $ = qat'iy summa, compounding yo'q.")
@@ -495,13 +509,21 @@ var int   prevClosedN  = 0
 
 slipVal = slipTick * syminfo.mintick
 
+// ---------- REALISTIK XARAJAT ----------
+// Barcha xarajat NARX BIRLIGIDA hisoblanadi va kirish/chiqishga qo'llanadi.
+// Kirish narxi yomonlashadi, SL yaqinlashadi, TP uzoqlashadi.
+float pipVal   = pipSize > 0 ? pipSize : syminfo.mintick * 10
+float costPips = useCost ? (costSpread + costComm + costSlip + costSwap) : 0.0
+float costPx   = costPips * pipVal        // umumiy xarajat, narx birligida
+float costHalf = costPx / 2.0             // kirish va chiqishga bo'linadi
+
 if wEntry
-    float e  = wPx
-    float sl = wFib0 - wRange * slBufPct / 100
+    float e  = wPx + costHalf              // LONG: qimmatroq kiramiz
+    float sl = wFib0 - wRange * slBufPct / 100 - costHalf   // SL uzoqroq (yomonroq)
     float r  = e - sl
     if r > 0
-        float t1 = f_lvl(wFib0, wRange, tp1Fib)
-        float t2 = f_lvl(wFib0, wRange, tp2Fib)
+        float t1 = f_lvl(wFib0, wRange, tp1Fib) + costHalf   // TP uzoqroq
+        float t2 = f_lvl(wFib0, wRange, tp2Fib) + costHalf
         if t1 > e
             // ---------- RADAR ----------
             bool  blocked = false
@@ -547,12 +569,12 @@ if wEntry
                         nClear += 1
 
 if mEntry
-    float e  = mPx
-    float sl = mFib0 + mRange * slBufPct / 100
+    float e  = mPx - costHalf              // SHORT: arzonroq sotamiz
+    float sl = mFib0 + mRange * slBufPct / 100 + costHalf
     float r  = sl - e
     if r > 0
-        float t1 = f_lvl(mFib0, -mRange, tp1Fib)
-        float t2 = f_lvl(mFib0, -mRange, tp2Fib)
+        float t1 = f_lvl(mFib0, -mRange, tp1Fib) - costHalf  // TP uzoqroq
+        float t2 = f_lvl(mFib0, -mRange, tp2Fib) - costHalf
         if t1 < e
             // ---------- RADAR ----------
             bool  blocked = false
@@ -648,7 +670,7 @@ plot(strategy.position_size != 0 ? posEntry : na, "Entry", color.new(color.blue,
 var table st = na
 if showStat and barstate.islast
     table.delete(st)
-    st := table.new(position.top_right, 2, 18, border_width = 1, frame_color = color.new(color.gray, 50), frame_width = 1)
+    st := table.new(position.top_right, 2, 19, border_width = 1, frame_color = color.new(color.gray, 50), frame_width = 1)
     cG = color.new(color.green, 60)
     cB = color.new(color.red, 60)
     cN = color.new(color.gray, 60)
@@ -713,6 +735,9 @@ if showStat and barstate.islast
     float wrObst  = nObst  > 0 ? winObst  * 100.0 / nObst  : 0
     table.cell(st, 0, 16, "  TP1%: toza vs to'siqli", text_color = color.white, text_size = size.small, bgcolor = cH)
     table.cell(st, 1, 16, useRadar and totRad > 0 ? str.tostring(wrClear, "#.#") + "%  vs  " + str.tostring(wrObst, "#.#") + "%" : "-", text_color = color.white, text_size = size.small, bgcolor = useRadar and nClear >= 10 and nObst >= 10 ? (wrClear > wrObst ? cG : cB) : cN)
+
+    table.cell(st, 0, 18, "XARAJAT", text_color = color.white, text_size = size.small, bgcolor = useCost ? color.new(color.orange, 40) : color.new(color.black, 25))
+    table.cell(st, 1, 18, useCost ? str.tostring(costPips, "#.#") + " pip/savdo  (REALISTIK)" : "0 pip  (ALDAMCHI!)", text_color = color.white, text_size = size.small, bgcolor = useCost ? color.new(color.orange, 55) : cB)
 
     table.cell(st, 0, 17, "  Bloklandi / TP kesildi", text_color = color.white, text_size = size.small, bgcolor = cH)
     float avgObst = nObst > 0 ? sumObstDist / nObst : 0
