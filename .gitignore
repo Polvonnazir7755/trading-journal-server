@@ -15,3 +15,6 @@ assistant/*.db
 avtotest/cache/
 avtotest/demo_frames/
 avtotest/*.mp4
+
+# Excel jurnal (foydalanuvchi ma'lumoti)
+*.xlsx
