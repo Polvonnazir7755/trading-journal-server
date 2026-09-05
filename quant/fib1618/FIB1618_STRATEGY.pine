@@ -81,8 +81,10 @@ costSlip   = input.float(0.4, "Slippage (pip)", minval = 0.0, step = 0.1, group 
      tooltip = "Kirish + chiqishdagi o'rtacha siljish")
 costSwap   = input.float(0.6, "Swap (pip, o'rtacha)", minval = 0.0, step = 0.1, group = gC,
      tooltip = "Pozitsiyani tunga qoldirish narxi. M30 da ~1-2 kun ushlanadi.")
-pipSize    = input.float(0.0001, "1 pip qiymati (narx birligida)", minval = 0.00001, step = 0.00001, group = gC,
-     tooltip = "EURUSD/GBPUSD = 0.0001\nUSDJPY = 0.01\nXAUUSD = 0.10\nAgar 0 qoldirilsa syminfo.mintick*10 ishlatiladi")
+pipAuto    = input.bool(true, "1 pip qiymatini AVTOMATIK aniqlash", group = gC,
+     tooltip = "YOQ = simvolga qarab o'zi tanlaydi (TAVSIYA).\nBu XAUUSD da 0.0001 qoldirib yuborish xatosini oldini oladi.")
+pipSize    = input.float(0.0001, "1 pip (qo'lda, avtomatik o'chiq bo'lsa)", minval = 0.00001, step = 0.00001, group = gC,
+     tooltip = "EURUSD/GBPUSD = 0.0001\nUSDJPY = 0.01\nXAUUSD = 0.10")
 
 gR = "RISK"
 riskMode = input.string("Foiz %", "Risk turi", options = ["Foiz %", "Dollar $"], group = gR,
@@ -512,7 +514,11 @@ slipVal = slipTick * syminfo.mintick
 // ---------- REALISTIK XARAJAT ----------
 // Barcha xarajat NARX BIRLIGIDA hisoblanadi va kirish/chiqishga qo'llanadi.
 // Kirish narxi yomonlashadi, SL yaqinlashadi, TP uzoqlashadi.
-float pipVal   = pipSize > 0 ? pipSize : syminfo.mintick * 10
+// pip qiymatini simvolga qarab aniqlash (XAUUSD/JPY xatosini oldini oladi)
+f_autoPip() =>
+    float mt = syminfo.mintick
+    mt >= 0.01 and mt < 0.5 ? 0.10 : mt >= 0.001 ? 0.01 : mt * 10
+float pipVal   = pipAuto ? f_autoPip() : pipSize
 float costPips = useCost ? (costSpread + costComm + costSlip + costSwap) : 0.0
 float costPx   = costPips * pipVal        // umumiy xarajat, narx birligida
 float costHalf = costPx / 2.0             // kirish va chiqishga bo'linadi
@@ -620,7 +626,9 @@ if mEntry
                         nClear += 1
 
 // TP1 urilganini aniqlash -> SL breakevenga
-if strategy.position_size != 0 and not na(posTP1) and not tp1Hit
+// DIQQAT: tp1Pct=100 bo'lsa savdo TP1 da to'liq yopiladi va position_size 0 bo'ladi.
+// Shuning uchun position_size sharti OLIB TASHLANDI — posTP1 mavjudligi yetarli.
+if not na(posTP1) and not tp1Hit and not na(posR)
     bool hit = posLong ? high >= posTP1 : low <= posTP1
     if hit
         tp1Hit := true
