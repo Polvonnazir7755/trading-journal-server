@@ -16,5 +16,6 @@ avtotest/cache/
 avtotest/demo_frames/
 avtotest/*.mp4
 
-# Excel jurnal (foydalanuvchi ma'lumoti)
-*.xlsx
+# Excel jurnal — foydalanuvchi to'ldirgan nusxalari
+*_TOLDIRILGAN.xlsx
+SAVDO_JURNALI_*.xlsx
