@@ -754,5 +754,47 @@ if showStat and barstate.islast
     table.cell(st, 0, 12, "Expectancy (R)", text_color = color.white, text_size = size.small, bgcolor = cH)
     table.cell(st, 1, 12, str.tostring(expR, "#.###") + "R", text_color = color.white, text_size = size.small, bgcolor = expR > 0 ? cG : cB)
 
+// ---------------------------------------------------------------
+//  ALERTLAR
+// ---------------------------------------------------------------
+// 1) KIRISH alerti — savdo ochiladigan payt (real vaqtda kerak)
 alertcondition(wEntry, "W LONG", "1.618 W pattern LONG")
 alertcondition(mEntry, "M SHORT", "1.618 M pattern SHORT")
+
+// 2) SETUP alerti — neckline yorilgan payt.
+//    Bu KIRISHDAN 30 BARGACHA OLDIN keladi (M30 da ~15 soat).
+//    Shu paytda LIMIT ORDER qo'yib qo'yish mumkin -> signalni
+//    o'tkazib yuborish muammosi hal bo'ladi.
+float wZoneHi = wSetup and wRange > 0 ? f_lvl(wFib0, wRange, oteHi) : na
+float wZoneLo = wSetup and wRange > 0 ? f_lvl(wFib0, wRange, oteLo) : na
+float wSLpre  = wSetup and wRange > 0 ? wFib0 - wRange * slBufPct / 100 : na
+float wTPpre  = wSetup and wRange > 0 ? f_lvl(wFib0, wRange, tp1Fib) : na
+
+float mZoneLo = mSetup and mRange > 0 ? f_lvl(mFib0, -mRange, oteHi) : na
+float mZoneHi = mSetup and mRange > 0 ? f_lvl(mFib0, -mRange, oteLo) : na
+float mSLpre  = mSetup and mRange > 0 ? mFib0 + mRange * slBufPct / 100 : na
+float mTPpre  = mSetup and mRange > 0 ? f_lvl(mFib0, -mRange, tp1Fib) : na
+
+bool wSetupNew = wBreak and wRange > 0
+bool mSetupNew = mBreak and mRange > 0
+
+alertcondition(wSetupNew, "SETUP LONG (limit qo'y)",
+     "1.618 SETUP LONG {{ticker}} | BUY LIMIT zona: {{plot('OTE past')}} - {{plot('OTE yuqori')}} | SL {{plot('SL oldindan')}} | TP {{plot('TP oldindan')}}")
+alertcondition(mSetupNew, "SETUP SHORT (limit qo'y)",
+     "1.618 SETUP SHORT {{ticker}} | SELL LIMIT zona: {{plot('OTE past')}} - {{plot('OTE yuqori')}} | SL {{plot('SL oldindan')}} | TP {{plot('TP oldindan')}}")
+
+// 3) Ikkalasi bitta alertda (bepul tarifda 1 ta alert bo'lgani uchun)
+alertcondition(wSetupNew or mSetupNew or wEntry or mEntry, "HAMMASI (bitta alert)",
+     "1.618 SIGNAL {{ticker}} {{interval}} — grafikni oching")
+
+// Alert xabarida narx ko'rsatish uchun plotlar (grafikda ko'rinmaydi)
+plot(wSetup ? wZoneLo : (mSetup ? mZoneLo : na), "OTE past",      display = display.none)
+plot(wSetup ? wZoneHi : (mSetup ? mZoneHi : na), "OTE yuqori",    display = display.none)
+plot(wSetup ? wSLpre  : (mSetup ? mSLpre  : na), "SL oldindan",   display = display.none)
+plot(wSetup ? wTPpre  : (mSetup ? mTPpre  : na), "TP oldindan",   display = display.none)
+
+// Setup zonasini grafikda ko'rsatish (limit order qayerga qo'yishni ko'rish uchun)
+plot(showViz and wSetup ? wZoneHi : na, "W OTE yuqori", color.new(color.green, 30), 1, plot.style_linebr)
+plot(showViz and wSetup ? wZoneLo : na, "W OTE past",   color.new(color.green, 30), 1, plot.style_linebr)
+plot(showViz and mSetup ? mZoneHi : na, "M OTE yuqori", color.new(color.red, 30),   1, plot.style_linebr)
+plot(showViz and mSetup ? mZoneLo : na, "M OTE past",   color.new(color.red, 30),   1, plot.style_linebr)
