@@ -757,14 +757,10 @@ if showStat and barstate.islast
 // ---------------------------------------------------------------
 //  ALERTLAR
 // ---------------------------------------------------------------
-// 1) KIRISH alerti — savdo ochiladigan payt (real vaqtda kerak)
-alertcondition(wEntry, "W LONG", "1.618 W pattern LONG")
-alertcondition(mEntry, "M SHORT", "1.618 M pattern SHORT")
+// DIQQAT: strategy() skriptida alertcondition() ISHLAMAYDI —
+// u faqat indicator() da ko'rinadi. Shuning uchun alert() ishlatamiz.
+// TradingView'da: Alt+A -> Condition = strategiya nomi -> "Any alert() function call"
 
-// 2) SETUP alerti — neckline yorilgan payt.
-//    Bu KIRISHDAN 30 BARGACHA OLDIN keladi (M30 da ~15 soat).
-//    Shu paytda LIMIT ORDER qo'yib qo'yish mumkin -> signalni
-//    o'tkazib yuborish muammosi hal bo'ladi.
 float wZoneHi = wSetup and wRange > 0 ? f_lvl(wFib0, wRange, oteHi) : na
 float wZoneLo = wSetup and wRange > 0 ? f_lvl(wFib0, wRange, oteLo) : na
 float wSLpre  = wSetup and wRange > 0 ? wFib0 - wRange * slBufPct / 100 : na
@@ -778,20 +774,29 @@ float mTPpre  = mSetup and mRange > 0 ? f_lvl(mFib0, -mRange, tp1Fib) : na
 bool wSetupNew = wBreak and wRange > 0
 bool mSetupNew = mBreak and mRange > 0
 
-alertcondition(wSetupNew, "SETUP LONG (limit qo'y)",
-     "1.618 SETUP LONG {{ticker}} | BUY LIMIT zona: {{plot('OTE past')}} - {{plot('OTE yuqori')}} | SL {{plot('SL oldindan')}} | TP {{plot('TP oldindan')}}")
-alertcondition(mSetupNew, "SETUP SHORT (limit qo'y)",
-     "1.618 SETUP SHORT {{ticker}} | SELL LIMIT zona: {{plot('OTE past')}} - {{plot('OTE yuqori')}} | SL {{plot('SL oldindan')}} | TP {{plot('TP oldindan')}}")
+f_px(float v) => str.tostring(v, format.mintick)
 
-// 3) Ikkalasi bitta alertda (bepul tarifda 1 ta alert bo'lgani uchun)
-alertcondition(wSetupNew or mSetupNew or wEntry or mEntry, "HAMMASI (bitta alert)",
-     "1.618 SIGNAL {{ticker}} {{interval}} — grafikni oching")
+// --- 1) SETUP alerti: neckline yorildi, kirishgacha ~30 bar vaqt bor
+if wSetupNew and barstate.isconfirmed
+    alert("1.618 SETUP LONG | " + syminfo.ticker + " " + timeframe.period +
+          "\nBUY LIMIT zona: " + f_px(wZoneLo) + " - " + f_px(wZoneHi) +
+          "\nSL: " + f_px(wSLpre) + "   TP: " + f_px(wTPpre) +
+          "\nOyna: " + str.tostring(waitBars) + " bar", alert.freq_once_per_bar_close)
 
-// Alert xabarida narx ko'rsatish uchun plotlar (grafikda ko'rinmaydi)
-plot(wSetup ? wZoneLo : (mSetup ? mZoneLo : na), "OTE past",      display = display.none)
-plot(wSetup ? wZoneHi : (mSetup ? mZoneHi : na), "OTE yuqori",    display = display.none)
-plot(wSetup ? wSLpre  : (mSetup ? mSLpre  : na), "SL oldindan",   display = display.none)
-plot(wSetup ? wTPpre  : (mSetup ? mTPpre  : na), "TP oldindan",   display = display.none)
+if mSetupNew and barstate.isconfirmed
+    alert("1.618 SETUP SHORT | " + syminfo.ticker + " " + timeframe.period +
+          "\nSELL LIMIT zona: " + f_px(mZoneLo) + " - " + f_px(mZoneHi) +
+          "\nSL: " + f_px(mSLpre) + "   TP: " + f_px(mTPpre) +
+          "\nOyna: " + str.tostring(waitBars) + " bar", alert.freq_once_per_bar_close)
+
+// --- 2) KIRISH alerti: savdo aynan hozir ochildi
+if wEntry and barstate.isconfirmed
+    alert("1.618 KIRISH LONG | " + syminfo.ticker + " " + timeframe.period +
+          "\nNarx: " + f_px(close), alert.freq_once_per_bar_close)
+
+if mEntry and barstate.isconfirmed
+    alert("1.618 KIRISH SHORT | " + syminfo.ticker + " " + timeframe.period +
+          "\nNarx: " + f_px(close), alert.freq_once_per_bar_close)
 
 // Setup zonasini grafikda ko'rsatish (limit order qayerga qo'yishni ko'rish uchun)
 plot(showViz and wSetup ? wZoneHi : na, "W OTE yuqori", color.new(color.green, 30), 1, plot.style_linebr)
