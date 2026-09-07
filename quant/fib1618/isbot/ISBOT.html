@@ -1,0 +1,753 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>1.618 LEGENDA — Statistik isbotlar</title>
+<style>
+:root{
+  --bg:#0b1020; --bg2:#121a33; --card:#151d38; --line:#243055;
+  --tx:#e8edff; --dim:#8fa0c8; --acc:#5b9cff; --ok:#2fd07a;
+  --bad:#ff5a6e; --warn:#ffc14d; --pur:#b07cff;
+}
+*{box-sizing:border-box}
+body{margin:0;background:linear-gradient(180deg,#0b1020,#0d1329);
+     color:var(--tx);font:15px/1.65 -apple-system,Segoe UI,Roboto,sans-serif}
+.wrap{max-width:1180px;margin:0 auto;padding:28px 18px 80px}
+header{text-align:center;padding:38px 0 26px;border-bottom:1px solid var(--line);margin-bottom:26px}
+h1{margin:0 0 10px;font-size:30px;letter-spacing:-.4px}
+h1 span{color:var(--acc)}
+.sub{color:var(--dim);font-size:15px}
+.badge{display:inline-block;margin-top:16px;padding:7px 18px;border-radius:20px;
+   background:rgba(47,208,122,.13);border:1px solid rgba(47,208,122,.4);color:var(--ok);
+   font-weight:600;font-size:14px}
+nav{display:flex;gap:7px;flex-wrap:wrap;margin:22px 0 30px;justify-content:center}
+nav a{color:var(--dim);text-decoration:none;font-size:12.5px;padding:6px 12px;
+   border:1px solid var(--line);border-radius:16px;transition:.15s}
+nav a:hover{color:var(--tx);border-color:var(--acc);background:rgba(91,156,255,.08)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;
+   padding:24px;margin:20px 0}
+.card h2{margin:0 0 5px;font-size:20px;display:flex;align-items:center;gap:10px}
+.num{display:inline-flex;align-items:center;justify-content:center;width:27px;height:27px;
+   border-radius:8px;background:var(--acc);color:#04102b;font-size:14px;font-weight:700;flex:none}
+.q{color:var(--acc);font-size:13.5px;margin:0 0 14px;font-weight:500}
+.card p{margin:11px 0;color:#cdd7f5;font-size:14.5px}
+.formula{background:#0a1226;border:1px solid var(--line);border-left:3px solid var(--pur);
+   border-radius:8px;padding:13px 16px;font-family:ui-monospace,Consolas,monospace;
+   font-size:13.5px;color:#c9d6ff;margin:14px 0;overflow-x:auto}
+.take{border-left:3px solid var(--ok);background:rgba(47,208,122,.07);
+   border-radius:8px;padding:13px 16px;margin:16px 0 4px;font-size:14.5px}
+.take.warn{border-left-color:var(--warn);background:rgba(255,193,77,.07)}
+.take.bad{border-left-color:var(--bad);background:rgba(255,90,110,.07)}
+.take b{color:var(--tx)}
+svg{display:block;width:100%;height:auto;margin:8px 0 4px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media(max-width:820px){.grid2{grid-template-columns:1fr}}
+table{width:100%;border-collapse:collapse;margin:14px 0;font-size:13.5px}
+th{background:#0e1730;color:var(--dim);font-weight:600;text-align:right;
+   padding:9px 11px;border-bottom:1px solid var(--line)}
+th:first-child,td:first-child{text-align:left}
+td{padding:9px 11px;border-bottom:1px solid #1b2444;text-align:right}
+tr:last-child td{border-bottom:none}
+.g{color:var(--ok);font-weight:600}.r{color:var(--bad);font-weight:600}
+.y{color:var(--warn);font-weight:600}.dim{color:var(--dim)}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin:18px 0}
+.kpi{background:#0e1730;border:1px solid var(--line);border-radius:10px;padding:14px;text-align:center}
+.kpi .v{font-size:23px;font-weight:700;margin-bottom:3px}
+.kpi .l{font-size:11.5px;color:var(--dim);text-transform:uppercase;letter-spacing:.4px}
+.legend{display:flex;gap:16px;flex-wrap:wrap;font-size:12.5px;color:var(--dim);margin:6px 0 2px}
+.legend i{display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+.ctrl{display:flex;gap:9px;align-items:center;flex-wrap:wrap;margin:12px 0;font-size:13px;color:var(--dim)}
+input[type=range]{flex:1;min-width:170px;accent-color:var(--acc)}
+.chip{padding:4px 11px;border-radius:12px;background:#0e1730;border:1px solid var(--line);
+   font-family:ui-monospace,monospace;font-size:12.5px;color:var(--tx)}
+footer{text-align:center;color:var(--dim);font-size:12.5px;padding:36px 0 0;
+   border-top:1px solid var(--line);margin-top:34px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>1.618 <span>LEGENDA</span> — statistik isbotlar</h1>
+  <div class="sub">EURUSD M30 · 33 savdo · 8 oy · xarajat hisobga olingan · 26 test o'tkazilgan</div>
+  <div class="badge">P(edge haqiqiy) = 85% · kutilgan daromad ~27.5%/yil</div>
+</header>
+
+<nav>
+  <a href="#s1">1 · Equity</a><a href="#s2">2 · Drawdown</a>
+  <a href="#s3">3 · t-statistika</a><a href="#s4">4 · Bonferroni</a>
+  <a href="#s5">5 · Ekstremal qiymat</a><a href="#s6">6 · Bayes</a>
+  <a href="#s7">7 · Pivot</a><a href="#s8">8 · Monte-Carlo</a>
+  <a href="#s9">9 · Ishonch oralig'i</a><a href="#s10">10 · Walk-forward</a>
+  <a href="#s11">11 · TP masofasi</a><a href="#s12">12 · Xarajat</a>
+  <a href="#s13">13 · Risk</a><a href="#s14">14 · Tiklanish</a>
+  <a href="#s15">15 · Xulosa</a>
+</nav>
+
+<!-- 1 -->
+<div class="card" id="s1">
+  <h2><span class="num">1</span>Equity — foyda qanday to'plangan</h2>
+  <div class="q">Savol: foyda bir necha omadli savdodanmi yoki barqarormi?</div>
+  <p>Vertikal o'q — jami <b>R</b> (risk birligi). 1R = bir savdodagi risk.
+     Har nuqta bitta savdo. Chiziq yuqoriga barqaror ko'tarilsa — edge bor.
+     Bitta sakrash bo'lsa — omad.</p>
+  <div id="c1"></div>
+  <div class="legend"><span><i style="background:#5b9cff"></i>Kumulyativ R</span>
+     <span><i style="background:#2fd07a"></i>Yutuq</span>
+     <span><i style="background:#ff5a6e"></i>Zarar</span></div>
+  <div class="take"><b>Xulosa:</b> o'sish tekis taqsimlangan, bitta savdoga bog'liq emas.
+     24 yutuq / 9 zarar, eng katta yutuq jami foydaning 8% idan kam.</div>
+</div>
+
+<!-- 2 -->
+<div class="card" id="s2">
+  <h2><span class="num">2</span>Drawdown — og'riq chuqurligi</h2>
+  <div class="q">Savol: eng yomon paytda hisob qancha tushgan?</div>
+  <div class="formula">DD(t) = max(equity[0..t]) − equity[t]
+Max DD = eng chuqur nuqta</div>
+  <p>Bu "qancha yo'qotdim" emas — <b>"eng baxtli paytimdan qancha pastga tushdim"</b>.</p>
+  <div id="c2"></div>
+  <div class="kpis">
+    <div class="kpi"><div class="v g">4.57%</div><div class="l">Max DD</div></div>
+    <div class="kpi"><div class="v g">13.2</div><div class="l">Recovery</div></div>
+    <div class="kpi"><div class="v">$47.22</div><div class="l">DD dollarda</div></div>
+    <div class="kpi"><div class="v g">72.7%</div><div class="l">Win rate</div></div>
+  </div>
+  <div class="take"><b>Recovery factor = Net ÷ MaxDD = 13.2.</b>
+     Har $1 og'riq uchun $13.2 foyda. Mezon 2.0 edi.</div>
+</div>
+
+<!-- 3 -->
+<div class="card" id="s3">
+  <h2><span class="num">3</span>t-statistika — natija tasodifmi?</h2>
+  <div class="q">Savol: bu foyda tasodifan chiqishi mumkinmi?</div>
+  <div class="formula">t = (expectancy / σ) × √n
+σ = √(p(1−p)) × (W+L)   —   savdo natijalarining tarqoqligi</div>
+  <p>Egri chiziq — <b>nol gipoteza</b>: agar strategiyada edge <u>bo'lmasa</u>,
+     t qanday taqsimlanadi. Qizil chiziq — bizning natija.</p>
+  <div id="c3"></div>
+  <div class="take"><b>t = 3.81, p = 0.00014.</b>
+     Ya'ni edge bo'lmasa, bunday natija <b>7000 tadan 1 marta</b> tasodifan chiqadi.</div>
+</div>
+
+<!-- 4 -->
+<div class="card" id="s4">
+  <h2><span class="num">4</span>Bonferroni — ko'p test jazosi</h2>
+  <div class="q">Savol: 26 ta test qildik. Chegara qanchaga ko'tariladi?</div>
+  <div class="formula">α_tuzatilgan = α / k = 0.05 / 26 = 0.0019
+kerakli t = Φ⁻¹(1 − α/2k) = 3.10</div>
+  <p>Qancha ko'p test qilsangiz, "chiroyli tasodif" topish ehtimoli shuncha yuqori.
+     Bonferroni buni jazolaydi — chegarani ko'taradi.</p>
+  <div id="c4"></div>
+  <div class="take"><b>26 test uchun kerak t &gt; 3.10. Bizda 3.81.</b> O'tdi — lekin zaxira katta emas.
+     Yana test qilsak chegara yanada ko'tariladi.</div>
+</div>
+
+<!-- 5 -->
+<div class="card" id="s5">
+  <h2><span class="num">5</span>Ekstremal qiymat — eng muhim tekshiruv</h2>
+  <div class="q">Savol: edge <u>umuman bo'lmasa</u>, 26 testdan eng yaxshisi qanday t beradi?</div>
+  <div class="formula">E[max t] ≈ √(2 ln k) − [ln ln k + ln 4π] / (2√(2 ln k))
+k = 26  →  E[max t] = 1.83</div>
+  <p>Bu Gumbel taqsimoti — ekstremal qiymatlar nazariyasidan.
+     Sof shovqinda ham 26 tadan eng yaxshisi t≈1.83 beradi.
+     <b>Bizning ortiqchamiz = 3.81 − 1.83 = 1.98.</b></p>
+  <div id="c5"></div>
+  <div class="take"><b>Deflated Sharpe p = 0.024.</b>
+     Tanlash effekti chiqarib tashlangandan keyin ham natija ahamiyatli.</div>
+</div>
+
+<!-- 6 -->
+<div class="card" id="s6">
+  <h2><span class="num">6</span>Bayes — "edge bor" ehtimoli</h2>
+  <div class="q">Savol: hamma dalilni ko'rgach, edge haqiqiy bo'lish ehtimoli qancha?</div>
+  <div class="formula">P(edge|dalil) = P(dalil|edge)·P(edge) / P(dalil)
+LR = LR₁ × LR₂ × LR₃ × LR₄</div>
+  <table>
+    <tr><th>Dalil</th><th>LR</th><th>Tomon</th></tr>
+    <tr><td>t = 3.81 (26 test tuzatilgan)</td><td class="g">152.5×</td><td class="g">foyda</td></tr>
+    <tr><td>Pivot 3/6 da PF 1.41–1.60</td><td class="r">0.43×</td><td class="r">zarar</td></tr>
+    <tr><td>XAUUSD t=2.50, short −$105</td><td class="y">0.82×</td><td class="y">zarar</td></tr>
+    <tr><td>Walk-forward barqaror (p=0.475)</td><td class="g">2.00×</td><td class="g">foyda</td></tr>
+    <tr><td><b>Umumiy</b></td><td class="g"><b>106.9×</b></td><td></td></tr>
+  </table>
+  <p>Slayderni suring — boshlang'ich ishonchni (prior) o'zgartirib ko'ring:</p>
+  <div class="ctrl">
+    <span>Prior:</span><input type="range" id="pr" min="1" max="50" value="5">
+    <span class="chip" id="prv">5%</span><span>→</span>
+    <span class="chip" id="pov" style="color:#2fd07a">—</span>
+  </div>
+  <div id="c6"></div>
+  <div class="take"><b>Skeptik prior 5% → posterior 85%.</b>
+     Adabiyot: retail strategiyalarning ~5% i xarajatdan keyin foydali.</div>
+</div>
+
+<!-- 7 -->
+<div class="card" id="s7">
+  <h2><span class="num">7</span>Pivot — eng zaif nuqta</h2>
+  <div class="q">Savol: parametr barqarormi?</div>
+  <p>Ishonchli strategiyada qo'shni parametrlar ham yaxshi ishlashi kerak —
+     <b>silliq tepalik</b>. Bizda esa <b>tor cho'qqi</b>.</p>
+  <div id="c7"></div>
+  <table>
+    <tr><th>Pivot</th><th>Savdo</th><th>WR</th><th>PF</th><th>Max DD</th></tr>
+    <tr><td>3</td><td>59</td><td>57.6%</td><td class="r">1.604</td><td class="r">22.5%</td></tr>
+    <tr><td>4</td><td>45</td><td>77.8%</td><td class="g">3.975</td><td class="g">11.7%</td></tr>
+    <tr><td><b>5</b> ← tanlangan</td><td>33</td><td>72.7%</td><td class="g">4.186</td><td class="g">11.3%</td></tr>
+    <tr><td>6</td><td>31</td><td>51.6%</td><td class="r">1.413</td><td class="r">26.9%</td></tr>
+  </table>
+  <div class="take bad"><b>Bu overfitting belgisi.</b> PF 3 barobar tebranadi.
+     Shuning uchun Bayes tahlilida bu dalil ehtimolni 0.43× ga pasaytirdi
+     va kutilmalar PF 4.5 dan 1.8–2.8 ga tushirildi.</div>
+</div>
+
+<!-- 8 -->
+<div class="card" id="s8">
+  <h2><span class="num">8</span>Monte-Carlo — pivot farqi shovqinmi?</h2>
+  <div class="q">Savol: haqiqiy PF 2.85 bo'lsa, kichik namunada u qanchalik tebranadi?</div>
+  <p>30,000 marta simulyatsiya. Har safar n ta savdo, WR 60%, RR 1.9.
+     <b>Edge o'zgarmas</b> — faqat tasodif ishlaydi.</p>
+  <div id="c8"></div>
+  <div class="legend"><span><i style="background:#ff5a6e"></i>n=33</span>
+     <span><i style="background:#ffc14d"></i>n=60</span>
+     <span><i style="background:#2fd07a"></i>n=120</span></div>
+  <div class="take warn"><b>n=33 da PF 1.56–5.46 oralig'ida tasodifan tebranadi.</b>
+     Bizning pivot diapazonimiz (1.41–4.19) aynan shu ichiga tushadi —
+     demak pivot farqi ehtimol <b>sof shovqin</b>.</div>
+</div>
+
+<!-- 9 -->
+<div class="card" id="s9">
+  <h2><span class="num">9</span>Ishonch oralig'i — nima uchun 33 savdo kam</h2>
+  <div class="q">Savol: haqiqiy win rate qayerda?</div>
+  <div class="formula">CI = p ± 1.96 × √(p(1−p)/n)     kenglik ∝ 1/√n</div>
+  <div id="c9"></div>
+  <div class="take warn"><b>n=33 → WR 57.5%–87.9% (kenglik 30 punkt).</b>
+     Haqiqiy WR 58% ham bo'lishi mumkin. Buni toraytirish uchun
+     n=120 kerak — bu esa faqat vaqt bilan keladi.</div>
+</div>
+
+<!-- 10 -->
+<div class="card" id="s10">
+  <h2><span class="num">10</span>Walk-forward — vaqt barqarorligi</h2>
+  <div class="q">Savol: strategiya davr ichida barqarormi?</div>
+  <div class="formula">z = (p₁−p₂) / √(p̄(1−p̄)(1/n₁+1/n₂))
+z = 0.714  →  p = 0.475</div>
+  <div id="c10"></div>
+  <div class="take"><b>p = 0.475 &gt; 0.05 → ikki yarim orasida statistik farq YO'Q.</b>
+     Ikkalasida ham PF &gt; 3.4. Bu curve-fitting emasligining kuchli dalili —
+     odatda fitting bo'lganda birinchi yarim ajoyib, ikkinchisi yomon bo'ladi.</div>
+</div>
+
+<!-- 11 -->
+<div class="card" id="s11">
+  <h2><span class="num">11</span>TP masofasi — win rate tuzog'i</h2>
+  <div class="q">Savol: win rate'ni oshirsa bo'ladimi?</div>
+  <p>Ha — TP ni yaqinlashtiring. Lekin qarang nima bo'ladi.</p>
+  <div id="c11"></div>
+  <div class="legend"><span><i style="background:#ffc14d"></i>Win rate %</span>
+     <span><i style="background:#2fd07a"></i>Expectancy (R)</span>
+     <span><i style="background:#5b9cff"></i>1.618 (hozirgi)</span></div>
+  <div class="take warn"><b>WR 90% olish mumkin — lekin foyda 3 barobar kamayadi.</b>
+     Edge o'zgarmaydi (+23.9 punkt), faqat qayta taqsimlanadi.
+     Yagona haqiqiy yaxshilash — <b>filtr</b>, TP emas.</div>
+</div>
+
+<!-- 12 -->
+<div class="card" id="s12">
+  <h2><span class="num">12</span>Xarajat — SL masofasiga bog'liqlik</h2>
+  <div class="q">Savol: spred va komissiya qancha yeydi?</div>
+  <div class="formula">xarajat_R = jami_pip / SL_pip     (bizda 2.1 pip)</div>
+  <div id="c12"></div>
+  <div class="take"><b>SL kichik bo'lsa xarajat ulushi katta.</b>
+     Aynan shuning uchun M3/M5 da strategiya ishlamaydi:
+     u yerda W bo'yi 2–5 pip, xarajat 40%+ ni yeydi.</div>
+</div>
+
+<!-- 13 -->
+<div class="card" id="s13">
+  <h2><span class="num">13</span>Risk % — Kelly va portlash</h2>
+  <div class="q">Savol: qancha risk olish kerak?</div>
+  <div id="c13"></div>
+  <div class="legend"><span><i style="background:#2fd07a"></i>Median natija</span>
+     <span><i style="background:#ffc14d"></i>DD 95%</span>
+     <span><i style="background:#ff5a6e"></i>Portlash %</span></div>
+  <div class="take"><b>2% tanlandi.</b> Sizning testingiz: 5%→2% da foyda 27% tushdi,
+     DD esa 59% tushdi. Har 1% DD uchun foyda 1.8× oshdi.</div>
+</div>
+
+<!-- 14 -->
+<div class="card" id="s14">
+  <h2><span class="num">14</span>Tiklanish assimetriyasi</h2>
+  <div class="q">Savol: nega DD ni past ushlash muhim?</div>
+  <div class="formula">tiklanish = 1/(1−DD) − 1</div>
+  <div id="c14"></div>
+  <div class="take bad"><b>50% yo'qotsangiz, nolga qaytish uchun 100% kerak.</b>
+     Matematika shafqatsiz — shuning uchun DD ni past ushlash
+     foydani oshirishdan muhimroq.</div>
+</div>
+
+<!-- 15 -->
+<div class="card" id="s15">
+  <h2><span class="num">15</span>Yakuniy xulosa</h2>
+  <div class="grid2">
+    <div>
+      <p><b>Uch strategiya taqqoslovi</b></p>
+      <div id="c15"></div>
+    </div>
+    <div>
+      <p><b>Stsenariy taqsimoti</b></p>
+      <div id="c16"></div>
+    </div>
+  </div>
+  <div class="kpis">
+    <div class="kpi"><div class="v g">85%</div><div class="l">P(edge bor)</div></div>
+    <div class="kpi"><div class="v g">27.5%</div><div class="l">Kutilgan yillik</div></div>
+    <div class="kpi"><div class="v y">1.8–2.8</div><div class="l">Realistik PF</div></div>
+    <div class="kpi"><div class="v y">20–25%</div><div class="l">Realistik DD</div></div>
+  </div>
+  <table>
+    <tr><th>Test</th><th>Natija</th><th>Holat</th></tr>
+    <tr><td>Vaqt barqarorligi (walk-forward)</td><td>p = 0.475</td><td class="g">o'tdi</td></tr>
+    <tr><td>Ikki bozor (EURUSD + XAUUSD)</td><td>ikkalasi foydali</td><td class="g">o'tdi</td></tr>
+    <tr><td>Realistik xarajat (2.1 pip)</td><td>PF 4.19 saqlandi</td><td class="g">o'tdi</td></tr>
+    <tr><td>Bonferroni (26 test)</td><td>t 3.81 &gt; 3.10</td><td class="g">o'tdi</td></tr>
+    <tr><td>Deflated Sharpe</td><td>p = 0.024</td><td class="g">o'tdi</td></tr>
+    <tr><td>Repaint / look-ahead</td><td>topilmadi</td><td class="g">o'tdi</td></tr>
+    <tr><td><b>Pivot barqarorligi</b></td><td>PF 1.41–4.19</td><td class="r">o'tmadi</td></tr>
+    <tr><td>Namuna hajmi</td><td>33 savdo</td><td class="y">kam</td></tr>
+  </table>
+  <div class="take"><b>Yakun:</b> strategiyada haqiqiy edge bo'lish ehtimoli 85%.
+     Kutilgan daromad ~27.5%/yil. Zaif nuqta — parametr barqarorligi va kichik namuna.
+     <b>Keyingi qadam faqat demo</b> — yangi backtest emas.</div>
+  <div class="take bad"><b>Obuna haqida:</b> $500 depozitda 4 oylik kutilgan foyda ~$35,
+     Essential obunasi $52. Kutilgan sof natija <b>−$10</b>.
+     Obuna $600+ depozitda oqlanadi.</div>
+</div>
+
+<footer>
+  1.618 LEGENDA · barcha raqamlar backtest va Monte-Carlo simulyatsiyasidan<br>
+  Backtest ≠ kelajak. Demo natijasi pastroq bo'lishi kutiladi.
+</footer>
+</div>
+
+<script>
+const D={"equity":[0.0,-1.0,0.31,1.62,2.93,1.93,3.24,4.55,5.86,7.17,8.48,9.79,11.1,12.41,11.41,10.41,11.72,10.72,12.03,11.03,12.34,13.65,14.96,16.27,17.58,18.89,17.89,19.2,18.2,17.2,18.51,19.82,21.13,22.44],"dd_curve":[0.0,1.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,1.0,2.0,0.69,1.69,0.38,1.38,0.07,0.0,0.0,0.0,0.0,0.0,1.0,0.0,1.0,2.0,0.69,0.0,0.0,0.0],"pivot":{"x":[3,4,5,6],"pf":[1.604,3.975,4.186,1.413],"dd":[22.48,11.74,11.28,26.9],"n":[59,45,33,31],"wr":[57.6,77.8,72.7,51.6]},"mc_pf":{"33":{"hist":[0,0,0,3,35,92,830,994,1711,0,2580,3364,4005,0,4210,0,4030,0,3136,0,0,2226,0,0,0,1441,0,0,0,769,0,0,0,0,0,369,0,0,0,205],"p05":1.58,"p50":2.92,"p95":5.07},"60":{"hist":[0,0,0,0,4,20,81,296,885,917,3111,2270,2661,3071,3180,2994,2800,2308,1844,0,1374,0,898,0,623,0,332,0,166,0,0,98,0,0,43,0,0,0,16,8],"p05":1.9,"p50":2.85,"p95":4.43},"120":{"hist":[0,0,0,0,0,0,0,17,182,564,1645,2104,5024,4287,4436,4013,1715,2602,994,1304,394,273,170,127,68,41,18,14,4,4,0,0,0,0,0,0,0,0,0,0],"p05":2.1,"p50":2.85,"p95":3.95}},"ci":[{"n":15,"lo":50.15,"hi":95.25},{"n":20,"lo":53.18,"hi":92.22},{"n":25,"lo":55.24,"hi":90.16},{"n":30,"lo":56.76,"hi":88.64},{"n":35,"lo":57.94,"hi":87.46},{"n":40,"lo":58.89,"hi":86.51},{"n":45,"lo":59.68,"hi":85.72},{"n":50,"lo":60.35,"hi":85.05},{"n":55,"lo":60.93,"hi":84.47},{"n":60,"lo":61.43,"hi":83.97},{"n":65,"lo":61.87,"hi":83.53},{"n":70,"lo":62.26,"hi":83.14},{"n":75,"lo":62.62,"hi":82.78},{"n":80,"lo":62.94,"hi":82.46},{"n":85,"lo":63.23,"hi":82.17},{"n":90,"lo":63.5,"hi":81.9},{"n":95,"lo":63.74,"hi":81.66},{"n":100,"lo":63.97,"hi":81.43},{"n":105,"lo":64.18,"hi":81.22},{"n":110,"lo":64.37,"hi":81.03},{"n":115,"lo":64.56,"hi":80.84},{"n":120,"lo":64.73,"hi":80.67},{"n":125,"lo":64.89,"hi":80.51},{"n":130,"lo":65.04,"hi":80.36},{"n":135,"lo":65.18,"hi":80.22},{"n":140,"lo":65.32,"hi":80.08},{"n":145,"lo":65.45,"hi":79.95},{"n":150,"lo":65.57,"hi":79.83},{"n":155,"lo":65.69,"hi":79.71},{"n":160,"lo":65.8,"hi":79.6},{"n":165,"lo":65.9,"hi":79.5},{"n":170,"lo":66.0,"hi":79.4},{"n":175,"lo":66.1,"hi":79.3},{"n":180,"lo":66.19,"hi":79.21},{"n":185,"lo":66.28,"hi":79.12},{"n":190,"lo":66.37,"hi":79.03},{"n":195,"lo":66.45,"hi":78.95},{"n":200,"lo":66.53,"hi":78.87},{"n":205,"lo":66.6,"hi":78.8},{"n":210,"lo":66.67,"hi":78.73},{"n":215,"lo":66.74,"hi":78.66},{"n":220,"lo":66.81,"hi":78.59},{"n":225,"lo":66.88,"hi":78.52},{"n":230,"lo":66.94,"hi":78.46},{"n":235,"lo":67.0,"hi":78.4},{"n":240,"lo":67.06,"hi":78.34},{"n":245,"lo":67.12,"hi":78.28},{"n":250,"lo":67.18,"hi":78.22},{"n":255,"lo":67.23,"hi":78.17},{"n":260,"lo":67.28,"hi":78.12},{"n":265,"lo":67.34,"hi":78.06},{"n":270,"lo":67.39,"hi":78.01},{"n":275,"lo":67.43,"hi":77.97},{"n":280,"lo":67.48,"hi":77.92},{"n":285,"lo":67.53,"hi":77.87},{"n":290,"lo":67.57,"hi":77.83},{"n":295,"lo":67.62,"hi":77.78},{"n":300,"lo":67.66,"hi":77.74}],"bonf":[1.96,2.241,2.394,2.498,2.576,2.638,2.69,2.734,2.773,2.807,2.838,2.865,2.891,2.914,2.935,2.955,2.974,2.991,3.008,3.023,3.038,3.052,3.065,3.078,3.09,3.102,3.113,3.124,3.134,3.144,3.154,3.163,3.172,3.18,3.189,3.197,3.205,3.213,3.22,3.227,3.234,3.241,3.248,3.254,3.261,3.267,3.273,3.279,3.285,3.291],"t_obs":3.81,"evt":[0,0.258,0.597,0.807,0.956,1.07,1.163,1.239,1.305,1.362,1.412,1.457,1.498,1.535,1.569,1.601,1.63,1.657,1.683,1.707,1.729,1.75,1.771,1.79,1.808,1.826,1.842,1.858,1.874,1.888,1.902,1.916,1.929,1.942,1.954,1.966,1.978,1.989,2.0,2.01,2.02,2.03,2.04,2.049,2.058,2.067,2.076,2.084,2.093,2.101],"bayes":{"LR1":152.5,"LR2":0.43,"LR3":0.82,"LR4":2.0,"LR":106.9,"curve":[{"prior":0.005,"post":0.3495},{"prior":0.01,"post":0.5193},{"prior":0.015,"post":0.6196},{"prior":0.02,"post":0.6858},{"prior":0.025,"post":0.7328},{"prior":0.03,"post":0.7678},{"prior":0.035,"post":0.795},{"prior":0.04,"post":0.8167},{"prior":0.045,"post":0.8344},{"prior":0.05,"post":0.8491},{"prior":0.055,"post":0.8616},{"prior":0.06,"post":0.8722},{"prior":0.065,"post":0.8814},{"prior":0.07,"post":0.8895},{"prior":0.075,"post":0.8966},{"prior":0.08,"post":0.9029},{"prior":0.085,"post":0.9085},{"prior":0.09,"post":0.9136},{"prior":0.095,"post":0.9182},{"prior":0.1,"post":0.9224},{"prior":0.105,"post":0.9262},{"prior":0.11,"post":0.9297},{"prior":0.115,"post":0.9329},{"prior":0.12,"post":0.9358},{"prior":0.125,"post":0.9386},{"prior":0.13,"post":0.9411},{"prior":0.135,"post":0.9435},{"prior":0.14,"post":0.9457},{"prior":0.145,"post":0.9477},{"prior":0.15,"post":0.9497},{"prior":0.155,"post":0.9515},{"prior":0.16,"post":0.9532},{"prior":0.165,"post":0.9548},{"prior":0.17,"post":0.9563},{"prior":0.175,"post":0.9578},{"prior":0.18,"post":0.9591},{"prior":0.185,"post":0.9604},{"prior":0.19,"post":0.9617},{"prior":0.195,"post":0.9628},{"prior":0.2,"post":0.9639},{"prior":0.205,"post":0.965},{"prior":0.21,"post":0.966},{"prior":0.215,"post":0.967},{"prior":0.22,"post":0.9679},{"prior":0.225,"post":0.9688},{"prior":0.23,"post":0.9696},{"prior":0.235,"post":0.9705},{"prior":0.24,"post":0.9712},{"prior":0.245,"post":0.972},{"prior":0.25,"post":0.9727},{"prior":0.255,"post":0.9734},{"prior":0.26,"post":0.9741},{"prior":0.265,"post":0.9747},{"prior":0.27,"post":0.9753},{"prior":0.275,"post":0.9759},{"prior":0.28,"post":0.9765},{"prior":0.285,"post":0.9771},{"prior":0.29,"post":0.9776},{"prior":0.295,"post":0.9781},{"prior":0.3,"post":0.9786},{"prior":0.305,"post":0.9791},{"prior":0.31,"post":0.9796},{"prior":0.315,"post":0.9801},{"prior":0.32,"post":0.9805},{"prior":0.325,"post":0.9809},{"prior":0.33,"post":0.9814},{"prior":0.335,"post":0.9818},{"prior":0.34,"post":0.9822},{"prior":0.345,"post":0.9826},{"prior":0.35,"post":0.9829},{"prior":0.355,"post":0.9833},{"prior":0.36,"post":0.9836},{"prior":0.365,"post":0.984},{"prior":0.37,"post":0.9843},{"prior":0.375,"post":0.9847},{"prior":0.38,"post":0.985},{"prior":0.385,"post":0.9853},{"prior":0.39,"post":0.9856},{"prior":0.395,"post":0.9859},{"prior":0.4,"post":0.9862},{"prior":0.405,"post":0.9864},{"prior":0.41,"post":0.9867},{"prior":0.415,"post":0.987},{"prior":0.42,"post":0.9873},{"prior":0.425,"post":0.9875},{"prior":0.43,"post":0.9878},{"prior":0.435,"post":0.988},{"prior":0.44,"post":0.9882},{"prior":0.445,"post":0.9885},{"prior":0.45,"post":0.9887},{"prior":0.455,"post":0.9889},{"prior":0.46,"post":0.9891},{"prior":0.465,"post":0.9894},{"prior":0.47,"post":0.9896},{"prior":0.475,"post":0.9898},{"prior":0.48,"post":0.99},{"prior":0.485,"post":0.9902},{"prior":0.49,"post":0.9904},{"prior":0.495,"post":0.9906},{"prior":0.5,"post":0.9907}]},"tp":[{"rr":0.5,"wr":90.61,"exp":0.3592},{"rr":0.6,"wr":86.45,"exp":0.3831},{"rr":0.7,"wr":82.77,"exp":0.4071},{"rr":0.8,"wr":79.5,"exp":0.431},{"rr":0.9,"wr":76.58,"exp":0.455},{"rr":1.0,"wr":73.95,"exp":0.4789},{"rr":1.1,"wr":71.57,"exp":0.5029},{"rr":1.2,"wr":69.4,"exp":0.5268},{"rr":1.3,"wr":67.42,"exp":0.5508},{"rr":1.4,"wr":65.61,"exp":0.5747},{"rr":1.5,"wr":63.95,"exp":0.5987},{"rr":1.6,"wr":62.41,"exp":0.6226},{"rr":1.7,"wr":60.98,"exp":0.6466},{"rr":1.8,"wr":59.66,"exp":0.6705},{"rr":1.9,"wr":58.43,"exp":0.6945},{"rr":2.0,"wr":57.28,"exp":0.7184},{"rr":2.1,"wr":56.2,"exp":0.7423},{"rr":2.2,"wr":55.2,"exp":0.7663},{"rr":2.3,"wr":54.25,"exp":0.7902},{"rr":2.4,"wr":53.36,"exp":0.8142},{"rr":2.5,"wr":52.52,"exp":0.8381},{"rr":2.6,"wr":51.72,"exp":0.8621},{"rr":2.7,"wr":50.97,"exp":0.886},{"rr":2.8,"wr":50.26,"exp":0.91},{"rr":2.9,"wr":49.59,"exp":0.9339},{"rr":3.0,"wr":48.95,"exp":0.9579},{"rr":3.1,"wr":48.34,"exp":0.9818},{"rr":3.2,"wr":47.76,"exp":1.0058},{"rr":3.3,"wr":47.2,"exp":1.0297},{"rr":3.4,"wr":46.67,"exp":1.0537},{"rr":3.5,"wr":46.17,"exp":1.0776},{"rr":3.6,"wr":45.69,"exp":1.1015},{"rr":3.7,"wr":45.22,"exp":1.1255},{"rr":3.8,"wr":44.78,"exp":1.1494},{"rr":3.9,"wr":44.35,"exp":1.1734},{"rr":4.0,"wr":43.95,"exp":1.1973},{"rr":4.1,"wr":43.55,"exp":1.2213},{"rr":4.2,"wr":43.18,"exp":1.2452},{"rr":4.3,"wr":42.81,"exp":1.2692},{"rr":4.4,"wr":42.47,"exp":1.2931},{"rr":4.5,"wr":42.13,"exp":1.3171},{"rr":4.6,"wr":41.8,"exp":1.341},{"rr":4.7,"wr":41.49,"exp":1.365},{"rr":4.8,"wr":41.19,"exp":1.3889},{"rr":4.9,"wr":40.9,"exp":1.4129},{"rr":5.0,"wr":40.61,"exp":1.4368}],"risk":[{"risk":0.5,"med":1385.0,"dd95":2.5,"ruin":0.0},{"risk":1.0,"med":1869.0,"dd95":5.0,"ruin":0.0},{"risk":2.0,"med":3436.0,"dd95":9.7,"ruin":0.0},{"risk":3.0,"med":6213.0,"dd95":14.3,"ruin":0.0},{"risk":5.0,"med":19371.0,"dd95":22.9,"ruin":0.0},{"risk":8.0,"med":112591.0,"dd95":34.5,"ruin":0.0},{"risk":10.0,"med":315928.0,"dd95":41.4,"ruin":0.0},{"risk":15.0,"med":3314783.0,"dd95":56.9,"ruin":0.0},{"risk":20.0,"med":25829003.0,"dd95":67.5,"ruin":0.0}],"cost":[{"sl":10,"cost_r":0.19,"exp":0.678},{"sl":15,"cost_r":0.1267,"exp":0.7413},{"sl":20,"cost_r":0.095,"exp":0.773},{"sl":25,"cost_r":0.076,"exp":0.792},{"sl":30,"cost_r":0.0633,"exp":0.8047},{"sl":40,"cost_r":0.0475,"exp":0.8205},{"sl":50,"cost_r":0.038,"exp":0.83},{"sl":60,"cost_r":0.0317,"exp":0.8363},{"sl":80,"cost_r":0.0238,"exp":0.8442},{"sl":100,"cost_r":0.019,"exp":0.849}],"wf":{"labels":["1-yarim (Jan-Apr)","2-yarim (May-Sep)"],"n":[18,15],"wr":[77.78,66.67],"pf":[6.107,3.42],"net":[326.36,227.79],"dd":[4.61,2.69],"z":0.714,"p":0.475},"markets":[{"name":"EURUSD M30","n":33,"wr":72.73,"pf":4.186,"dd":11.28,"t":3.81},{"name":"XAUUSD D","n":69,"wr":56.52,"pf":1.827,"dd":23.43,"t":2.5}],"scen":[{"name":"Edge yo'q","p":15,"exp":0.0,"ann":0.0},{"name":"Zaif edge","p":35,"exp":0.15,"ann":16.2},{"name":"O'rta edge","p":35,"exp":0.3,"ann":34.9},{"name":"Kuchli edge","p":15,"exp":0.5,"ann":64.5}],"recov":[{"dd":5,"need":5.3},{"dd":10,"need":11.1},{"dd":15,"need":17.6},{"dd":20,"need":25.0},{"dd":25,"need":33.3},{"dd":30,"need":42.9},{"dd":35,"need":53.8},{"dd":40,"need":66.7},{"dd":45,"need":81.8},{"dd":50,"need":100.0},{"dd":55,"need":122.2},{"dd":60,"need":150.0},{"dd":65,"need":185.7},{"dd":70,"need":233.3},{"dd":75,"need":300.0},{"dd":80,"need":400.0},{"dd":85,"need":566.7}],"strats":[{"name":"BETA 1 + LAOL","t":1.17,"pf":1.321,"dd":43.68,"rec":1.19,"verdict":"rad"},{"name":"XAUUSD D","t":2.5,"pf":1.827,"dd":23.43,"rec":5.61,"verdict":"zaif"},{"name":"EURUSD M30","t":3.81,"pf":4.186,"dd":11.28,"rec":11.1,"verdict":"kuchli"}]};
+
+const NS='http://www.w3.org/2000/svg';
+const C={acc:'#5b9cff',ok:'#2fd07a',bad:'#ff5a6e',warn:'#ffc14d',pur:'#b07cff',
+         dim:'#8fa0c8',line:'#243055',tx:'#e8edff'};
+function el(t,a={}){const e=document.createElementNS(NS,t);
+  for(const k in a)e.setAttribute(k,a[k]);return e;}
+function svg(id,w,h){const s=el('svg',{viewBox:`0 0 ${w} ${h}`});
+  document.getElementById(id).appendChild(s);return s;}
+function txt(s,x,y,t,o={}){const e=el('text',{x,y,fill:o.fill||C.dim,
+  'font-size':o.fs||11,'text-anchor':o.a||'start','font-weight':o.fw||400,
+  'font-family':o.mono?'ui-monospace,monospace':'inherit'});
+  e.textContent=t;s.appendChild(e);return e;}
+function ln(s,x1,y1,x2,y2,o={}){const e=el('line',{x1,y1,x2,y2,
+  stroke:o.c||C.line,'stroke-width':o.w||1,'stroke-dasharray':o.d||'none',
+  opacity:o.op??1});s.appendChild(e);return e;}
+function path(s,d,o={}){const e=el('path',{d,fill:o.fill||'none',
+  stroke:o.c||C.acc,'stroke-width':o.w||2,opacity:o.op??1,
+  'stroke-linejoin':'round','stroke-linecap':'round'});s.appendChild(e);return e;}
+function rect(s,x,y,w,h,o={}){const e=el('rect',{x,y,width:Math.max(0,w),
+  height:Math.max(0,h),fill:o.fill||C.acc,opacity:o.op??1,rx:o.rx??2});s.appendChild(e);return e;}
+function circ(s,cx,cy,r,o={}){const e=el('circle',{cx,cy,r,
+  fill:o.fill||C.acc,opacity:o.op??1});s.appendChild(e);return e;}
+function grid(s,x0,y0,w,h,ny,fmt,min,max){
+  for(let i=0;i<=ny;i++){const y=y0+h-h*i/ny;
+    ln(s,x0,y,x0+w,y,{c:C.line,op:.45});
+    txt(s,x0-7,y+3.5,fmt(min+(max-min)*i/ny),{a:'end',fs:10});}
+}
+
+/* ---------- 1. EQUITY ---------- */
+(function(){
+  const W=1000,H=330,P={l:52,r:18,t:18,b:32};
+  const s=svg('c1',W,H),d=D.equity;
+  const w=W-P.l-P.r,h=H-P.t-P.b;
+  const mn=Math.min(...d),mx=Math.max(...d);
+  const X=i=>P.l+w*i/(d.length-1), Y=v=>P.t+h-h*(v-mn)/(mx-mn);
+  grid(s,P.l,P.t,w,h,5,v=>v.toFixed(1)+'R',mn,mx);
+  let ar=`M${X(0)},${Y(mn)}`;d.forEach((v,i)=>ar+=`L${X(i)},${Y(v)}`);
+  ar+=`L${X(d.length-1)},${Y(mn)}Z`;
+  path(s,ar,{fill:'rgba(91,156,255,.13)',c:'none'});
+  let p='';d.forEach((v,i)=>p+=(i?'L':'M')+X(i)+','+Y(v));
+  path(s,p,{c:C.acc,w:2.4});
+  for(let i=1;i<d.length;i++){
+    const up=d[i]>d[i-1];
+    circ(s,X(i),Y(d[i]),3,{fill:up?C.ok:C.bad});
+  }
+  txt(s,P.l,H-9,'savdo №1',{fs:10});
+  txt(s,P.l+w,H-9,'savdo №33',{a:'end',fs:10});
+  txt(s,P.l+w-4,P.t+14,'jami +'+d[d.length-1].toFixed(1)+'R',
+      {a:'end',fs:13,fill:C.ok,fw:700});
+})();
+
+/* ---------- 2. DRAWDOWN ---------- */
+(function(){
+  const W=1000,H=260,P={l:52,r:18,t:18,b:30};
+  const s=svg('c2',W,H),d=D.dd_curve;
+  const w=W-P.l-P.r,h=H-P.t-P.b,mx=Math.max(...d,0.6);
+  const X=i=>P.l+w*i/(d.length-1),Y=v=>P.t+h*v/mx;
+  for(let i=0;i<=4;i++){const y=P.t+h*i/4;ln(s,P.l,y,P.l+w,y,{c:C.line,op:.45});txt(s,P.l-7,y+3.5,'-'+(mx*i/4).toFixed(1)+'R',{a:'end',fs:10});}
+  let ar=`M${P.l},${P.t}`;d.forEach((v,i)=>ar+=`L${X(i)},${Y(v)}`);
+  ar+=`L${X(d.length-1)},${P.t}Z`;
+  path(s,ar,{fill:'rgba(255,90,110,.2)',c:'none'});
+  let p='';d.forEach((v,i)=>p+=(i?'L':'M')+X(i)+','+Y(v));
+  path(s,p,{c:C.bad,w:2.2});
+  const mi=d.indexOf(Math.max(...d));
+  circ(s,X(mi),Y(d[mi]),5,{fill:C.bad});
+  txt(s,X(mi)+9,Y(d[mi])+4,'Max DD '+d[mi].toFixed(2)+'R  (4.57%)',
+      {fs:12,fill:C.bad,fw:700});
+  txt(s,P.l,H-8,'savdolar ketma-ketligi',{fs:10});
+})();
+
+/* ---------- 3. t-STATISTIKA ---------- */
+(function(){
+  const W=1000,H=300,P={l:52,r:18,t:18,b:34};
+  const s=svg('c3',W,H),w=W-P.l-P.r,h=H-P.t-P.b;
+  const X=t=>P.l+w*(t+4)/8, Y=y=>P.t+h-h*y/0.42;
+  const N=t=>Math.exp(-t*t/2)/Math.sqrt(2*Math.PI);
+  grid(s,P.l,P.t,w,h,4,v=>v.toFixed(2),0,0.42);
+  let ar=`M${X(-4)},${Y(0)}`;
+  for(let t=-4;t<=4;t+=.05)ar+=`L${X(t)},${Y(N(t))}`;
+  ar+=`L${X(4)},${Y(0)}Z`;
+  path(s,ar,{fill:'rgba(143,160,200,.13)',c:'none'});
+  let p='';for(let t=-4;t<=4;t+=.05)p+=(t===-4?'M':'L')+X(t)+','+Y(N(t));
+  path(s,p,{c:C.dim,w:2});
+  // rad etish zonasi
+  let rz=`M${X(1.96)},${Y(0)}`;
+  for(let t=1.96;t<=4;t+=.03)rz+=`L${X(t)},${Y(N(t))}`;
+  rz+=`L${X(4)},${Y(0)}Z`;
+  path(s,rz,{fill:'rgba(255,90,110,.25)',c:'none'});
+  ln(s,X(1.96),P.t,X(1.96),P.t+h,{c:C.warn,d:'4,3',w:1.5});
+  txt(s,X(1.96)+5,P.t+13,'t=1.96  (p=0.05)',{fs:10.5,fill:C.warn});
+  ln(s,X(3.10),P.t,X(3.10),P.t+h,{c:C.pur,d:'4,3',w:1.5});
+  txt(s,X(3.10)+5,P.t+30,'t=3.10  (Bonferroni)',{fs:10.5,fill:C.pur});
+  ln(s,X(3.81),P.t-2,X(3.81),P.t+h,{c:C.ok,w:2.6});
+  txt(s,X(3.81)-5,P.t+13,'BIZDA t=3.81',{a:'end',fs:13,fill:C.ok,fw:700});
+  for(let t=-4;t<=4;t++)txt(s,X(t),H-11,t,{a:'middle',fs:10});
+  txt(s,P.l+w/2,H-1,'t-statistika  (nol gipoteza taqsimoti)',{a:'middle',fs:10.5});
+})();
+
+/* ---------- 4. BONFERRONI ---------- */
+(function(){
+  const W=1000,H=280,P={l:52,r:18,t:18,b:34};
+  const s=svg('c4',W,H),d=D.bonf,w=W-P.l-P.r,h=H-P.t-P.b;
+  const X=k=>P.l+w*(k-1)/(d.length-1), Y=v=>P.t+h-h*(v-1.5)/2.5;
+  grid(s,P.l,P.t,w,h,5,v=>v.toFixed(1),1.5,4.0);
+  let p='';d.forEach((v,i)=>p+=(i?'L':'M')+X(i+1)+','+Y(v));
+  path(s,p,{c:C.warn,w:2.4});
+  ln(s,P.l,Y(3.81),P.l+w,Y(3.81),{c:C.ok,d:'6,4',w:2});
+  txt(s,P.l+w-4,Y(3.81)-7,'bizning t = 3.81',{a:'end',fs:12,fill:C.ok,fw:700});
+  circ(s,X(26),Y(d[25]),6,{fill:C.bad});
+  txt(s,X(26)+10,Y(d[25])+4,'26 test → kerak 3.10',{fs:12,fill:C.bad,fw:600});
+  // zaxira
+  rect(s,X(26)-3,Y(3.81),6,Y(d[25])-Y(3.81),{fill:C.ok,op:.25});
+  [1,10,20,30,40,50].forEach(k=>txt(s,X(k),H-11,k,{a:'middle',fs:10}));
+  txt(s,P.l+w/2,H-1,'testlar soni (k)',{a:'middle',fs:10.5});
+})();
+
+/* ---------- 5. EKSTREMAL QIYMAT ---------- */
+(function(){
+  const W=1000,H=280,P={l:52,r:18,t:18,b:34};
+  const s=svg('c5',W,H),d=D.evt,w=W-P.l-P.r,h=H-P.t-P.b;
+  const X=k=>P.l+w*(k-1)/(d.length-1),Y=v=>P.t+h-h*v/4.2;
+  grid(s,P.l,P.t,w,h,6,v=>v.toFixed(1),0,4.2);
+  let ar=`M${X(1)},${Y(0)}`;d.forEach((v,i)=>ar+=`L${X(i+1)},${Y(v)}`);
+  ar+=`L${X(d.length)},${Y(0)}Z`;
+  path(s,ar,{fill:'rgba(176,124,255,.15)',c:'none'});
+  let p='';d.forEach((v,i)=>p+=(i?'L':'M')+X(i+1)+','+Y(v));
+  path(s,p,{c:C.pur,w:2.4});
+  txt(s,X(40),Y(d[39])-10,'shovqindan kutilgan max t',{a:'middle',fs:11,fill:C.pur});
+  ln(s,P.l,Y(3.81),P.l+w,Y(3.81),{c:C.ok,d:'6,4',w:2});
+  txt(s,P.l+w-4,Y(3.81)-7,'bizning t = 3.81',{a:'end',fs:12,fill:C.ok,fw:700});
+  circ(s,X(26),Y(d[25]),6,{fill:C.warn});
+  // ortiqcha
+  rect(s,X(26)-4,Y(3.81),8,Y(d[25])-Y(3.81),{fill:C.ok,op:.3});
+  txt(s,X(26)+12,(Y(3.81)+Y(d[25]))/2,'ortiqcha +1.98',{fs:12,fill:C.ok,fw:700});
+  txt(s,X(26),Y(d[25])+18,'k=26 → 1.83',{a:'middle',fs:11,fill:C.warn});
+  [1,10,20,30,40,50].forEach(k=>txt(s,X(k),H-11,k,{a:'middle',fs:10}));
+  txt(s,P.l+w/2,H-1,'testlar soni (k) — Gumbel ekstremal taqsimoti',{a:'middle',fs:10.5});
+})();
+
+/* ---------- 6. BAYES ---------- */
+(function(){
+  const W=1000,H=300,P={l:52,r:18,t:18,b:34};
+  const s=svg('c6',W,H),d=D.bayes.curve,w=W-P.l-P.r,h=H-P.t-P.b;
+  const X=p=>P.l+w*p/0.5,Y=v=>P.t+h-h*v;
+  grid(s,P.l,P.t,w,h,5,v=>(v*100).toFixed(0)+'%',0,1);
+  let p='';d.forEach((o,i)=>p+=(i?'L':'M')+X(o.prior)+','+Y(o.post));
+  path(s,p,{c:C.ok,w:2.6});
+  ln(s,P.l,Y(0),P.l+w,Y(1),{c:C.dim,d:'4,4',op:.5});
+  txt(s,P.l+w-4,Y(.93),'dalilsiz (prior=posterior)',{a:'end',fs:10});
+  const mk=circ(s,X(.05),Y(.849),7,{fill:C.acc});
+  mk.setAttribute('id','bmk');
+  const lb=txt(s,X(.05)+13,Y(.849)-8,'5% → 85%',{fs:13,fill:C.acc,fw:700});
+  lb.setAttribute('id','blb');
+  [0,.1,.2,.3,.4,.5].forEach(v=>txt(s,X(v),H-11,(v*100)+'%',{a:'middle',fs:10}));
+  txt(s,P.l+w/2,H-1,'boshlang\u2019ich ishonch (prior)',{a:'middle',fs:10.5});
+  const LR=D.bayes.LR;
+  document.getElementById('pr').addEventListener('input',e=>{
+    const pv=+e.target.value/100, po=pv*LR/(pv*LR+(1-pv));
+    document.getElementById('prv').textContent=(pv*100).toFixed(0)+'%';
+    document.getElementById('pov').textContent=(po*100).toFixed(1)+'%';
+    mk.setAttribute('cx',X(pv));mk.setAttribute('cy',Y(po));
+    lb.setAttribute('x',X(pv)+13);lb.setAttribute('y',Y(po)-8);
+    lb.textContent=(pv*100).toFixed(0)+'% → '+(po*100).toFixed(0)+'%';
+  });
+  document.getElementById('pov').textContent='85.0%';
+})();
+
+/* ---------- 7. PIVOT ---------- */
+(function(){
+  const W=1000,H=300,P={l:52,r:52,t:22,b:38};
+  const s=svg('c7',W,H),d=D.pivot,w=W-P.l-P.r,h=H-P.t-P.b;
+  const X=i=>P.l+w*(i+.5)/4,Y=v=>P.t+h-h*v/5;
+  grid(s,P.l,P.t,w,h,5,v=>v.toFixed(1),0,5);
+  // ideal (silliq) taqqoslash
+  let ip='';[2.9,3.1,3.2,3.0].forEach((v,i)=>ip+=(i?'L':'M')+X(i)+','+Y(v));
+  path(s,ip,{c:C.dim,w:2,d:'6,4',op:.55});
+  txt(s,X(3)+8,Y(3.0),'barqaror bo\u2019lsa shunday',{fs:10.5,fill:C.dim});
+  // haqiqiy
+  let p='';d.pf.forEach((v,i)=>p+=(i?'L':'M')+X(i)+','+Y(v));
+  path(s,p,{c:C.warn,w:3});
+  d.pf.forEach((v,i)=>{
+    const good=v>3;
+    circ(s,X(i),Y(v),7,{fill:good?C.ok:C.bad});
+    txt(s,X(i),Y(v)-15,v.toFixed(2),{a:'middle',fs:12,fill:good?C.ok:C.bad,fw:700});
+    txt(s,X(i),H-19,'pivot '+d.x[i],{a:'middle',fs:11.5,
+        fill:d.x[i]===5?C.acc:C.dim,fw:d.x[i]===5?700:400});
+    txt(s,X(i),H-6,d.n[i]+' savdo',{a:'middle',fs:9.5});
+  });
+  ln(s,P.l,Y(1.5),P.l+w,Y(1.5),{c:C.bad,d:'4,3',op:.7});
+  txt(s,P.l+3,Y(1.5)-5,'PF 1.5 — minimal mezon',{fs:10,fill:C.bad});
+  txt(s,P.l-42,P.t-6,'Profit factor',{fs:10.5});
+})();
+
+/* ---------- 8. MONTE-CARLO ---------- */
+(function(){
+  const W=1000,H=310,P={l:52,r:18,t:18,b:36};
+  const s=svg('c8',W,H),w=W-P.l-P.r,h=H-P.t-P.b;
+  const cols={33:C.bad,60:C.warn,120:C.ok};
+  let gmax=0;
+  Object.values(D.mc_pf).forEach(o=>gmax=Math.max(gmax,...o.hist));
+  const X=pf=>P.l+w*pf/8, Y=v=>P.t+h-h*v/gmax;
+  grid(s,P.l,P.t,w,h,4,v=>'',0,gmax);
+  Object.entries(D.mc_pf).forEach(([n,o])=>{
+    let p='';o.hist.forEach((v,i)=>{const pf=i*0.2+0.1;
+      p+=(i?'L':'M')+X(pf)+','+Y(v);});
+    path(s,p,{c:cols[n],w:2.2,op:.9});
+  });
+  // bizning pivot diapazoni
+  rect(s,X(1.41),P.t,X(4.19)-X(1.41),h,{fill:C.acc,op:.10,rx:4});
+  ln(s,X(1.41),P.t,X(1.41),P.t+h,{c:C.acc,d:'4,3',op:.8});
+  ln(s,X(4.19),P.t,X(4.19),P.t+h,{c:C.acc,d:'4,3',op:.8});
+  txt(s,(X(1.41)+X(4.19))/2,P.t+16,'pivot 3–6 diapazoni (1.41 – 4.19)',
+      {a:'middle',fs:12,fill:C.acc,fw:600});
+  txt(s,(X(1.41)+X(4.19))/2,P.t+32,'tasodifiy tebranish ichida',
+      {a:'middle',fs:10.5,fill:C.acc,op:.8});
+  [0,1,2,3,4,5,6,7,8].forEach(v=>txt(s,X(v),H-13,v,{a:'middle',fs:10}));
+  txt(s,P.l+w/2,H-2,'Profit factor  (30,000 simulyatsiya, edge O\u2019ZGARMAS)',
+      {a:'middle',fs:10.5});
+})();
+
+/* ---------- 9. ISHONCH ORALIG'I ---------- */
+(function(){
+  const W=1000,H=290,P={l:52,r:18,t:18,b:34};
+  const s=svg('c9',W,H),d=D.ci,w=W-P.l-P.r,h=H-P.t-P.b;
+  const X=n=>P.l+w*(n-15)/285,Y=v=>P.t+h-h*(v-40)/60;
+  grid(s,P.l,P.t,w,h,6,v=>v.toFixed(0)+'%',40,100);
+  let up='',lo='';
+  d.forEach((o,i)=>{up+=(i?'L':'M')+X(o.n)+','+Y(o.hi);
+                    lo+=(i?'L':'M')+X(o.n)+','+Y(o.lo);});
+  const band=up+'L'+X(d[d.length-1].n)+','+Y(d[d.length-1].lo)+
+    d.slice().reverse().map(o=>'L'+X(o.n)+','+Y(o.lo)).join('')+'Z';
+  path(s,band,{fill:'rgba(91,156,255,.16)',c:'none'});
+  path(s,up,{c:C.acc,w:1.8});path(s,lo,{c:C.acc,w:1.8});
+  ln(s,P.l,Y(72.7),P.l+w,Y(72.7),{c:C.ok,d:'5,4',w:1.8});
+  txt(s,P.l+w-4,Y(72.7)-7,'kuzatilgan WR 72.7%',{a:'end',fs:11.5,fill:C.ok});
+  [[33,'hozir'],[120,'kerak']].forEach(([n,l])=>{
+    const o=d.find(x=>Math.abs(x.n-n)<3);
+    ln(s,X(n),Y(o.lo),X(n),Y(o.hi),{c:C.warn,w:3});
+    circ(s,X(n),Y(o.hi),4,{fill:C.warn});circ(s,X(n),Y(o.lo),4,{fill:C.warn});
+    txt(s,X(n),Y(o.hi)-9,l+' n='+n,{a:'middle',fs:11,fill:C.warn,fw:600});
+    txt(s,X(n),Y(o.lo)+16,(o.hi-o.lo).toFixed(0)+'p',
+        {a:'middle',fs:10.5,fill:C.warn});
+  });
+  [15,50,100,150,200,250,300].forEach(n=>txt(s,X(n),H-11,n,{a:'middle',fs:10}));
+  txt(s,P.l+w/2,H-1,'savdolar soni (n)',{a:'middle',fs:10.5});
+})();
+
+/* ---------- 10. WALK-FORWARD ---------- */
+(function(){
+  const W=1000,H=250,P={l:52,r:18,t:22,b:44};
+  const s=svg('c10',W,H),d=D.wf,w=W-P.l-P.r,h=H-P.t-P.b;
+  const gw=w/2, bw=58;
+  grid(s,P.l,P.t,w,h,4,v=>v.toFixed(0)+'%',0,100);
+  const Y=v=>P.t+h-h*v/100;
+  d.labels.forEach((lb,i)=>{
+    const cx=P.l+gw*(i+.5);
+    // WR
+    rect(s,cx-bw-6,Y(d.wr[i]),bw,h-(Y(d.wr[i])-P.t),{fill:C.acc,rx:4});
+    txt(s,cx-bw/2-6,Y(d.wr[i])-7,d.wr[i].toFixed(1)+'%',
+        {a:'middle',fs:12.5,fill:C.acc,fw:700});
+    txt(s,cx-bw/2-6,H-28,'Win rate',{a:'middle',fs:10});
+    // PF (0-8 shkala -> 100 ga)
+    const pfv=d.pf[i]/8*100;
+    rect(s,cx+6,Y(pfv),bw,h-(Y(pfv)-P.t),{fill:C.ok,rx:4});
+    txt(s,cx+6+bw/2,Y(pfv)-7,d.pf[i].toFixed(2),
+        {a:'middle',fs:12.5,fill:C.ok,fw:700});
+    txt(s,cx+6+bw/2,H-28,'Profit factor',{a:'middle',fs:10});
+    txt(s,cx,H-11,lb+'  ·  '+d.n[i]+' savdo',{a:'middle',fs:11.5,fill:C.tx});
+  });
+  ln(s,P.l+gw,P.t,P.l+gw,P.t+h,{c:C.line,d:'4,4'});
+  txt(s,P.l+w-4,P.t+12,'z = 0.714  ·  p = 0.475  →  farq YO\u2019Q',
+      {a:'end',fs:12,fill:C.ok,fw:600});
+})();
+
+/* ---------- 11. TP MASOFASI ---------- */
+(function(){
+  const W=1000,H=300,P={l:52,r:52,t:18,b:34};
+  const s=svg('c11',W,H),d=D.tp,w=W-P.l-P.r,h=H-P.t-P.b;
+  const X=rr=>P.l+w*(rr-0.5)/4.5;
+  const Yw=v=>P.t+h-h*v/100, Ye=v=>P.t+h-h*v/1.6;
+  grid(s,P.l,P.t,w,h,4,v=>v.toFixed(0)+'%',0,100);
+  let pw='',pe='';
+  d.forEach((o,i)=>{pw+=(i?'L':'M')+X(o.rr)+','+Yw(o.wr);
+                    pe+=(i?'L':'M')+X(o.rr)+','+Ye(o.exp);});
+  path(s,pw,{c:C.warn,w:2.6});
+  path(s,pe,{c:C.ok,w:2.6});
+  const cur=d.find(o=>Math.abs(o.rr-1.6)<.06);
+  ln(s,X(1.6),P.t,X(1.6),P.t+h,{c:C.acc,d:'5,4',w:2});
+  circ(s,X(1.6),Yw(cur.wr),6,{fill:C.warn});
+  circ(s,X(1.6),Ye(cur.exp),6,{fill:C.ok});
+  txt(s,X(1.6)+9,P.t+14,'1.618 — hozirgi',{fs:12,fill:C.acc,fw:600});
+  txt(s,X(0.5)+6,Yw(d[0].wr)-9,'WR '+d[0].wr.toFixed(0)+'%',{fs:11,fill:C.warn});
+  txt(s,X(0.5)+6,Ye(d[0].exp)+16,'exp '+d[0].exp.toFixed(2)+'R',{fs:11,fill:C.ok});
+  const last=d[d.length-1];
+  txt(s,X(last.rr)-6,Yw(last.wr)-9,last.wr.toFixed(0)+'%',{a:'end',fs:11,fill:C.warn});
+  txt(s,X(last.rr)-6,Ye(last.exp)-9,last.exp.toFixed(2)+'R',{a:'end',fs:11,fill:C.ok});
+  [0.5,1,1.5,2,2.5,3,3.5,4,4.5,5].forEach(v=>txt(s,X(v),H-11,v,{a:'middle',fs:10}));
+  txt(s,P.l+w/2,H-1,'TP masofasi (R)',{a:'middle',fs:10.5});
+})();
+
+/* ---------- 12. XARAJAT ---------- */
+(function(){
+  const W=1000,H=260,P={l:52,r:18,t:18,b:36};
+  const s=svg('c12',W,H),d=D.cost,w=W-P.l-P.r,h=H-P.t-P.b;
+  const X=i=>P.l+w*(i+.5)/d.length, bw=w/d.length*0.6;
+  const Y=v=>P.t+h-h*v/0.25;
+  grid(s,P.l,P.t,w,h,5,v=>(v*100).toFixed(0)+'%',0,0.25);
+  d.forEach((o,i)=>{
+    const bad=o.cost_r>0.10;
+    rect(s,X(i)-bw/2,Y(o.cost_r),bw,P.t+h-Y(o.cost_r),
+      {fill:bad?C.bad:(o.cost_r>0.06?C.warn:C.ok),rx:3});
+    txt(s,X(i),Y(o.cost_r)-6,(o.cost_r*100).toFixed(1)+'%',
+      {a:'middle',fs:10.5,fill:bad?C.bad:C.dim});
+    txt(s,X(i),H-19,o.sl,{a:'middle',fs:10.5});
+  });
+  txt(s,P.l+w/2,H-4,'SL masofasi (pip)  —  xarajat 2.1 pip',{a:'middle',fs:10.5});
+  txt(s,P.l-44,P.t-5,'xarajat / R',{fs:10.5});
+})();
+
+/* ---------- 13. RISK ---------- */
+(function(){
+  const W=1000,H=300,P={l:52,r:52,t:18,b:36};
+  const s=svg('c13',W,H),d=D.risk,w=W-P.l-P.r,h=H-P.t-P.b;
+  const X=i=>P.l+w*(i+.5)/d.length;
+  const Yd=v=>P.t+h-h*v/100;
+  grid(s,P.l,P.t,w,h,5,v=>v.toFixed(0)+'%',0,100);
+  // DD 95%
+  let pd='';d.forEach((o,i)=>pd+=(i?'L':'M')+X(i)+','+Yd(o.dd95));
+  path(s,pd,{c:C.warn,w:2.6});
+  // ruin
+  let pr='';d.forEach((o,i)=>pr+=(i?'L':'M')+X(i)+','+Yd(o.ruin));
+  path(s,pr,{c:C.bad,w:2.6});
+  // median (log shkala -> 0-100 normallash)
+  const lmax=Math.log10(Math.max(...d.map(o=>o.med||1)));
+  let pm='';d.forEach((o,i)=>{const v=Math.log10(Math.max(o.med,1))/lmax*100;
+    pm+=(i?'L':'M')+X(i)+','+Yd(v);});
+  path(s,pm,{c:C.ok,w:2.2,d:'5,4'});
+  d.forEach((o,i)=>{
+    circ(s,X(i),Yd(o.dd95),4,{fill:C.warn});
+    txt(s,X(i),H-19,o.risk+'%',{a:'middle',fs:10.5,
+      fill:o.risk===2?C.acc:C.dim,fw:o.risk===2?700:400});
+  });
+  const i2=d.findIndex(o=>o.risk===2);
+  ln(s,X(i2),P.t,X(i2),P.t+h,{c:C.acc,d:'5,4',w:2});
+  txt(s,X(i2)+8,P.t+14,'2% — tanlangan',{fs:12,fill:C.acc,fw:600});
+  txt(s,P.l+w/2,H-4,'risk har savdoda (%)',{a:'middle',fs:10.5});
+})();
+
+/* ---------- 14. TIKLANISH ---------- */
+(function(){
+  const W=1000,H=280,P={l:52,r:18,t:18,b:36};
+  const s=svg('c14',W,H),d=D.recov,w=W-P.l-P.r,h=H-P.t-P.b;
+  const X=dd=>P.l+w*(dd-5)/80, Y=v=>P.t+h-h*Math.min(v,400)/400;
+  grid(s,P.l,P.t,w,h,4,v=>v.toFixed(0)+'%',0,400);
+  let ar=`M${X(5)},${Y(0)}`;d.forEach(o=>ar+=`L${X(o.dd)},${Y(o.need)}`);
+  ar+=`L${X(85)},${Y(0)}Z`;
+  path(s,ar,{fill:'rgba(255,90,110,.15)',c:'none'});
+  let p='';d.forEach((o,i)=>p+=(i?'L':'M')+X(o.dd)+','+Y(o.need));
+  path(s,p,{c:C.bad,w:2.8});
+  // teng chiziq
+  let eq='';d.forEach((o,i)=>eq+=(i?'L':'M')+X(o.dd)+','+Y(o.dd));
+  path(s,eq,{c:C.dim,w:1.5,d:'5,4',op:.6});
+  txt(s,X(70),Y(70)+16,'agar simmetrik bo\u2019lsa',{fs:10.5,fill:C.dim});
+  [[10,'11%'],[25,'33%'],[50,'100%'],[80,'400%']].forEach(([dd,l])=>{
+    const o=d.find(x=>x.dd===dd);
+    circ(s,X(dd),Y(o.need),5.5,{fill:dd>=50?C.bad:C.warn});
+    txt(s,X(dd)+9,Y(o.need)-6,dd+'% → '+l,
+      {fs:12,fill:dd>=50?C.bad:C.warn,fw:700});
+  });
+  // bizning zona
+  rect(s,X(5),P.t,X(25)-X(5),h,{fill:C.ok,op:.08,rx:4});
+  txt(s,(X(5)+X(25))/2,P.t+h-8,'bizning DD zonasi',{a:'middle',fs:10.5,fill:C.ok});
+  [10,20,30,40,50,60,70,80].forEach(v=>txt(s,X(v),H-11,v+'%',{a:'middle',fs:10}));
+  txt(s,P.l+w/2,H-1,'drawdown (%)',{a:'middle',fs:10.5});
+})();
+
+/* ---------- 15. STRATEGIYALAR ---------- */
+(function(){
+  const W=480,H=250,P={l:44,r:14,t:18,b:44};
+  const s=svg('c15',W,H),d=D.strats,w=W-P.l-P.r,h=H-P.t-P.b;
+  const X=i=>P.l+w*(i+.5)/3, bw=w/3*0.5;
+  const Y=v=>P.t+h-h*v/4.5;
+  grid(s,P.l,P.t,w,h,3,v=>v.toFixed(1),0,4.5);
+  ln(s,P.l,Y(3.10),P.l+w,Y(3.10),{c:C.pur,d:'4,3',w:1.5});
+  txt(s,P.l+2,Y(3.10)-5,'Bonferroni 3.10',{fs:9.5,fill:C.pur});
+  d.forEach((o,i)=>{
+    const col=o.verdict==='kuchli'?C.ok:(o.verdict==='zaif'?C.warn:C.bad);
+    rect(s,X(i)-bw/2,Y(o.t),bw,P.t+h-Y(o.t),{fill:col,rx:4});
+    txt(s,X(i),Y(o.t)-6,o.t.toFixed(2),{a:'middle',fs:12,fill:col,fw:700});
+    o.name.split(' ').forEach((wd,j)=>
+      txt(s,X(i),H-30+j*12,wd,{a:'middle',fs:9.5}));
+  });
+  txt(s,P.l-36,P.t-5,'t-stat',{fs:10});
+})();
+
+/* ---------- 16. STSENARIY ---------- */
+(function(){
+  const W=480,H=250,P={l:44,r:14,t:18,b:44};
+  const s=svg('c16',W,H),d=D.scen,w=W-P.l-P.r,h=H-P.t-P.b;
+  const X=i=>P.l+w*(i+.5)/4, bw=w/4*0.55;
+  const Y=v=>P.t+h-h*v/70;
+  grid(s,P.l,P.t,w,h,3,v=>v.toFixed(0)+'%',0,70);
+  const cols=[C.bad,C.warn,C.acc,C.ok];
+  d.forEach((o,i)=>{
+    rect(s,X(i)-bw/2,Y(o.ann),bw,P.t+h-Y(o.ann),{fill:cols[i],rx:4});
+    txt(s,X(i),Y(o.ann)-6,o.ann.toFixed(0)+'%',{a:'middle',fs:11.5,fill:cols[i],fw:700});
+    txt(s,X(i),H-30,o.p+'%',{a:'middle',fs:11,fill:C.tx,fw:600});
+    o.name.split(' ').forEach((wd,j)=>
+      txt(s,X(i),H-18+j*11,wd,{a:'middle',fs:9}));
+  });
+  ln(s,P.l,Y(27.5),P.l+w,Y(27.5),{c:C.ok,d:'5,4',w:2});
+  txt(s,P.l+w-2,Y(27.5)-6,'kutilgan 27.5%',{a:'end',fs:10.5,fill:C.ok,fw:600});
+  txt(s,P.l-36,P.t-5,'yillik',{fs:10});
+})();
+</script>
+</body>
+</html>
