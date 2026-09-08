@@ -176,15 +176,31 @@ sbN := f_sessDraw(sbN, inN, inN[1], #f74a8c, "NEW YORK")
 //  2) HUD PANEL
 // ---------------------------------------------------------------
 f_dayName(int d) =>
-    d == 1 ? "Yakshanba" : d == 2 ? "Dushanba" : d == 3 ? "Seshanba" :
-    d == 4 ? "Chorshanba" : d == 5 ? "Payshanba" : d == 6 ? "Juma" : "Shanba"
+    string r = "Shanba"
+    if d == 1
+        r := "Yakshanba"
+    else if d == 2
+        r := "Dushanba"
+    else if d == 3
+        r := "Seshanba"
+    else if d == 4
+        r := "Chorshanba"
+    else if d == 5
+        r := "Payshanba"
+    else if d == 6
+        r := "Juma"
+    r
 
 var table hud = na
 if showHud and barstate.islast
     table.delete(hud)
-    pos = hudPos == "Yuqori o'ng" ? position.top_right :
-          hudPos == "Yuqori chap" ? position.top_left :
-          hudPos == "Pastki o'ng" ? position.bottom_right : position.bottom_left
+    pos = position.bottom_left
+    if hudPos == "Yuqori o'ng"
+        pos := position.top_right
+    else if hudPos == "Yuqori chap"
+        pos := position.top_left
+    else if hudPos == "Pastki o'ng"
+        pos := position.bottom_right
     hud := table.new(pos, 2, 8, border_width = 1,
          frame_color = color.new(cAcc, 55), frame_width = 1,
          border_color = color.new(cDim, 78))
@@ -198,10 +214,22 @@ if showHud and barstate.islast
          bgcolor = ha, text_size = size.normal)
 
     // joriy sessiya
-    string sess = inN and inL ? "LONDON + NY" : inN ? "NEW YORK" :
-                  inL ? "LONDON" : inA ? "ASIA" : "yopiq"
-    color sc = inN and inL ? #f74a8c : inN ? #f74a8c : inL ? #f7a04a :
-               inA ? #4a6cf7 : cDim
+    string sess = "yopiq"
+    if inN and inL
+        sess := "LONDON + NY"
+    else if inN
+        sess := "NEW YORK"
+    else if inL
+        sess := "LONDON"
+    else if inA
+        sess := "ASIA"
+    color sc = cDim
+    if inN
+        sc := #f74a8c
+    else if inL
+        sc := #f7a04a
+    else if inA
+        sc := #4a6cf7
     table.cell(hud, 0, 1, "  Sessiya", text_color = cDim, bgcolor = hb, text_size = size.small)
     table.cell(hud, 1, 1, sess + "  ", text_color = sc, bgcolor = hb, text_size = size.small)
 
@@ -321,8 +349,11 @@ var table wm = na
 if showWm and barstate.islast
     table.delete(wm)
     wm := table.new(position.middle_center, 1, 2)
-    string ts = wmSize == "Kichik" ? size.normal : wmSize == "O'rta" ? size.large :
-                wmSize == "Katta" ? size.huge : size.huge
+    ts = size.huge
+    if wmSize == "Kichik"
+        ts := size.normal
+    else if wmSize == "O'rta"
+        ts := size.large
     table.cell(wm, 0, 0, wmTitle, text_color = color.new(cTx, 82),
          text_size = ts, text_halign = text.align_center)
     table.cell(wm, 0, 1, wmSub, text_color = color.new(cAcc, 76),
