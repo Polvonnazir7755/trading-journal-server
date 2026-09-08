@@ -1,0 +1,343 @@
+// =====================================================================
+//  TERMINAL ART — grafik bezagi va HUD paneli
+//  Robotga (1.618 LEGENDA) BOG'LIQ EMAS. Alohida indikator.
+//  Savdo signali BERMAYDI — faqat ko'rinish va ma'lumot.
+//
+//  Modullar (har biri alohida yoqiladi):
+//    1) Sessiya zonalari  — Osiyo / London / NY
+//    2) HUD panel         — ATR, sessiya, diapazon, hafta kuni
+//    3) Odamchalar        — polyline stickman, holatga qarab
+//    4) Watermark         — nom + shior
+//    5) Sham glow         — kuchli shamlarga nur effekti
+// =====================================================================
+
+//@version=6
+indicator("TERMINAL ART", overlay = true,
+     max_boxes_count = 200, max_labels_count = 300,
+     max_lines_count = 300, max_polylines_count = 100)
+
+// ---------------------------------------------------------------
+//  SOZLAMALAR
+// ---------------------------------------------------------------
+gT = "🎨 MAVZU"
+theme = input.string("Neon (qora)", "Rang sxemasi", group = gT,
+     options = ["Neon (qora)", "Oltin (qora)", "Muz (ko'k)", "Qon (qizil)", "Yumshoq (och)"])
+
+gS = "🕐 SESSIYA ZONALARI"
+showSess  = input.bool(true,  "Sessiyalarni ko'rsatish", group = gS)
+sessAsia  = input.session("0000-0800", "Osiyo",  group = gS)
+sessLon   = input.session("0800-1600", "London", group = gS)
+sessNY    = input.session("1300-2100", "Nyu-York", group = gS)
+sessTZ    = input.string("GMT+0", "Vaqt zonasi", group = gS,
+     options = ["GMT+0","GMT+1","GMT+2","GMT+3","GMT+5"])
+sessLabel = input.bool(true, "Sessiya nomlarini yozish", group = gS)
+sessHiLo  = input.bool(true, "Sessiya yuqori/quyi chizig'i", group = gS)
+
+gH = "📊 HUD PANEL"
+showHud  = input.bool(true, "Panelni ko'rsatish", group = gH)
+hudPos   = input.string("Yuqori o'ng", "Joylashuv", group = gH,
+     options = ["Yuqori o'ng","Yuqori chap","Pastki o'ng","Pastki chap"])
+atrLen   = input.int(14, "ATR uzunligi", minval = 1, group = gH)
+
+gM = "🏃 ODAMCHALAR"
+showMen   = input.bool(true, "Odamchalarni chizish", group = gM,
+     tooltip = "Bezak. Narx harakatiga qarab holat o'zgaradi.")
+menCount  = input.int(6, "Nechta odamcha", minval = 0, maxval = 14, group = gM)
+menSize   = input.float(1.0, "Hajm", minval = 0.3, maxval = 3.0, step = 0.1, group = gM)
+
+gW = "💧 WATERMARK"
+showWm  = input.bool(true, "Watermark", group = gW)
+wmTitle = input.string("TRADING DESK", "Sarlavha", group = gW)
+wmSub   = input.string("SABR  ·  INTIZOM  ·  QO'RQMASLIK", "Shior", group = gW)
+wmSize  = input.string("Katta", "O'lcham", options = ["Kichik","O'rta","Katta","Ulkan"], group = gW)
+
+gG = "✨ SHAM GLOW"
+showGlow = input.bool(true, "Kuchli shamlarga nur", group = gG)
+glowMult = input.float(1.8, "Kuchlilik chegarasi (× ATR)", minval = 0.5, step = 0.1, group = gG)
+
+// ---------------------------------------------------------------
+//  RANG SXEMASI
+// ---------------------------------------------------------------
+color cUp  = na
+color cDn  = na
+color cAcc = na
+color cBg  = na
+color cTx  = na
+color cDim = na
+if theme == "Neon (qora)"
+    cUp  := #00e5a0
+    cDn  := #ff3d71
+    cAcc := #6c8cff
+    cBg  := #070b16
+    cTx  := #e8edff
+    cDim := #7d8bb5
+else if theme == "Oltin (qora)"
+    cUp  := #ffd75e
+    cDn  := #c0392b
+    cAcc := #e0a800
+    cBg  := #0a0803
+    cTx  := #fff6d8
+    cDim := #9c8c5e
+else if theme == "Muz (ko'k)"
+    cUp  := #56ccf2
+    cDn  := #ff7ab6
+    cAcc := #2f80ed
+    cBg  := #04101f
+    cTx  := #e6f4ff
+    cDim := #6b8fb5
+else if theme == "Qon (qizil)"
+    cUp  := #ff5252
+    cDn  := #7a0f1a
+    cAcc := #ff1744
+    cBg  := #12040a
+    cTx  := #ffe6e9
+    cDim := #a5606a
+else
+    cUp  := #2e7d32
+    cDn  := #c62828
+    cAcc := #1565c0
+    cBg  := #f7f9ff
+    cTx  := #16233f
+    cDim := #6b7a99
+
+// ---------------------------------------------------------------
+//  YORDAMCHILAR
+// ---------------------------------------------------------------
+atr = ta.atr(atrLen)
+
+f_inSess(string sp) =>
+    not na(time(timeframe.period, sp, sessTZ))
+
+// ---------------------------------------------------------------
+//  1) SESSIYA ZONALARI
+// ---------------------------------------------------------------
+type SessBox
+    box   bx
+    line  hi
+    line  lo
+    label lb
+    float top
+    float bot
+    int   startBar
+
+var SessBox sbA = na
+var SessBox sbL = na
+var SessBox sbN = na
+
+f_sessDraw(SessBox sb, bool inNow, bool wasIn, color col, string nm) =>
+    SessBox r = sb
+    if showSess
+        if inNow and not wasIn
+            // yangi sessiya boshlandi
+            box b = box.new(bar_index, high, bar_index, low,
+                 border_color = color.new(col, 55), bgcolor = color.new(col, 91),
+                 border_width = 1)
+            line h = sessHiLo ? line.new(bar_index, high, bar_index, high,
+                 color = color.new(col, 35), style = line.style_dotted) : na
+            line l = sessHiLo ? line.new(bar_index, low, bar_index, low,
+                 color = color.new(col, 35), style = line.style_dotted) : na
+            label t = sessLabel ? label.new(bar_index, high, nm,
+                 style = label.style_label_down, color = color.new(col, 78),
+                 textcolor = color.new(cTx, 12), size = size.tiny) : na
+            r := SessBox.new(b, h, l, t, high, low, bar_index)
+        else if inNow and not na(r)
+            r.top := math.max(r.top, high)
+            r.bot := math.min(r.bot, low)
+            box.set_top(r.bx, r.top)
+            box.set_bottom(r.bx, r.bot)
+            box.set_right(r.bx, bar_index)
+            if not na(r.hi)
+                line.set_xy1(r.hi, r.startBar, r.top)
+                line.set_xy2(r.hi, bar_index + 12, r.top)
+            if not na(r.lo)
+                line.set_xy1(r.lo, r.startBar, r.bot)
+                line.set_xy2(r.lo, bar_index + 12, r.bot)
+            if not na(r.lb)
+                label.set_xy(r.lb, math.round((r.startBar + bar_index) / 2), r.top)
+    r
+
+bool inA = f_inSess(sessAsia)
+bool inL = f_inSess(sessLon)
+bool inN = f_inSess(sessNY)
+
+sbA := f_sessDraw(sbA, inA, inA[1], #4a6cf7, "ASIA")
+sbL := f_sessDraw(sbL, inL, inL[1], #f7a04a, "LONDON")
+sbN := f_sessDraw(sbN, inN, inN[1], #f74a8c, "NEW YORK")
+
+// ---------------------------------------------------------------
+//  2) HUD PANEL
+// ---------------------------------------------------------------
+f_dayName(int d) =>
+    d == 1 ? "Yakshanba" : d == 2 ? "Dushanba" : d == 3 ? "Seshanba" :
+    d == 4 ? "Chorshanba" : d == 5 ? "Payshanba" : d == 6 ? "Juma" : "Shanba"
+
+var table hud = na
+if showHud and barstate.islast
+    table.delete(hud)
+    pos = hudPos == "Yuqori o'ng" ? position.top_right :
+          hudPos == "Yuqori chap" ? position.top_left :
+          hudPos == "Pastki o'ng" ? position.bottom_right : position.bottom_left
+    hud := table.new(pos, 2, 8, border_width = 1,
+         frame_color = color.new(cAcc, 55), frame_width = 1,
+         border_color = color.new(cDim, 78))
+
+    hb = color.new(cBg, 8)
+    ha = color.new(cAcc, 72)
+
+    table.cell(hud, 0, 0, "  " + syminfo.ticker + "  ", text_color = cTx,
+         bgcolor = ha, text_size = size.normal)
+    table.cell(hud, 1, 0, "  " + timeframe.period + "  ", text_color = cTx,
+         bgcolor = ha, text_size = size.normal)
+
+    // joriy sessiya
+    string sess = inN and inL ? "LONDON + NY" : inN ? "NEW YORK" :
+                  inL ? "LONDON" : inA ? "ASIA" : "yopiq"
+    color sc = inN and inL ? #f74a8c : inN ? #f74a8c : inL ? #f7a04a :
+               inA ? #4a6cf7 : cDim
+    table.cell(hud, 0, 1, "  Sessiya", text_color = cDim, bgcolor = hb, text_size = size.small)
+    table.cell(hud, 1, 1, sess + "  ", text_color = sc, bgcolor = hb, text_size = size.small)
+
+    // kun
+    table.cell(hud, 0, 2, "  Kun", text_color = cDim, bgcolor = hb, text_size = size.small)
+    table.cell(hud, 1, 2, f_dayName(dayofweek) + "  ", text_color = cTx, bgcolor = hb, text_size = size.small)
+
+    // ATR
+    table.cell(hud, 0, 3, "  ATR(" + str.tostring(atrLen) + ")", text_color = cDim, bgcolor = hb, text_size = size.small)
+    table.cell(hud, 1, 3, str.tostring(atr, format.mintick) + "  ", text_color = cTx, bgcolor = hb, text_size = size.small)
+
+    // kunlik diapazon
+    float dHi = request.security(syminfo.tickerid, "D", high, lookahead = barmerge.lookahead_on)
+    float dLo = request.security(syminfo.tickerid, "D", low,  lookahead = barmerge.lookahead_on)
+    float rng = (dHi - dLo) / syminfo.mintick / 10
+    table.cell(hud, 0, 4, "  Kunlik diapazon", text_color = cDim, bgcolor = hb, text_size = size.small)
+    table.cell(hud, 1, 4, str.tostring(rng, "#.#") + " pip  ", text_color = cTx, bgcolor = hb, text_size = size.small)
+
+    // diapazonning qayerida
+    float posPct = dHi > dLo ? (close - dLo) / (dHi - dLo) * 100 : 50
+    string bar = ""
+    for i = 1 to 10
+        bar += i <= math.round(posPct / 10) ? "▰" : "▱"
+    table.cell(hud, 0, 5, "  Diapazonda", text_color = cDim, bgcolor = hb, text_size = size.small)
+    table.cell(hud, 1, 5, bar + " " + str.tostring(posPct, "#") + "%  ",
+         text_color = posPct > 70 ? cUp : posPct < 30 ? cDn : cTx, bgcolor = hb, text_size = size.small)
+
+    // volatillik holati
+    float atrAvg = ta.sma(atr, 50)
+    string vol = atr > atrAvg * 1.3 ? "YUQORI" : atr < atrAvg * 0.7 ? "PAST" : "normal"
+    color vc = atr > atrAvg * 1.3 ? cDn : atr < atrAvg * 0.7 ? cDim : cUp
+    table.cell(hud, 0, 6, "  Volatillik", text_color = cDim, bgcolor = hb, text_size = size.small)
+    table.cell(hud, 1, 6, vol + "  ", text_color = vc, bgcolor = hb, text_size = size.small)
+
+    // narx
+    table.cell(hud, 0, 7, "  Narx", text_color = cDim, bgcolor = hb, text_size = size.small)
+    table.cell(hud, 1, 7, str.tostring(close, format.mintick) + "  ",
+         text_color = close >= open ? cUp : cDn, bgcolor = hb, text_size = size.normal)
+
+// ---------------------------------------------------------------
+//  3) ODAMCHALAR (polyline stickman)
+// ---------------------------------------------------------------
+// Holatlar: 0 = tik turgan, 1 = qo'l ko'targan (g'alaba),
+//           2 = yiqilgan, 3 = yugurayotgan
+f_stickman(int cx, float cy, float h, color col, int mood) =>
+    float u  = h / 6.0            // birlik
+    int   dx = math.max(1, math.round(h / (syminfo.mintick * 400)))
+    array<chart.point> p = array.new<chart.point>()
+
+    if mood == 2
+        // yiqilgan — yotgan holat
+        p.push(chart.point.from_index(cx - dx*2, cy + u))
+        p.push(chart.point.from_index(cx - dx,   cy + u*1.4))
+        p.push(chart.point.from_index(cx + dx,   cy + u*1.4))
+        p.push(chart.point.from_index(cx + dx*2, cy + u*0.6))
+        p.push(chart.point.from_index(cx + dx,   cy + u*1.4))
+        p.push(chart.point.from_index(cx + dx*2, cy + u*2.0))
+    else
+        // bosh
+        p.push(chart.point.from_index(cx, cy + u*5.2))
+        // tana
+        p.push(chart.point.from_index(cx, cy + u*2.2))
+        // chap oyoq
+        p.push(chart.point.from_index(cx - dx, cy))
+        p.push(chart.point.from_index(cx, cy + u*2.2))
+        // o'ng oyoq
+        p.push(chart.point.from_index(cx + dx, cy))
+        p.push(chart.point.from_index(cx, cy + u*2.2))
+        // qo'llar
+        if mood == 1
+            p.push(chart.point.from_index(cx, cy + u*4.0))
+            p.push(chart.point.from_index(cx - dx, cy + u*5.4))
+            p.push(chart.point.from_index(cx, cy + u*4.0))
+            p.push(chart.point.from_index(cx + dx, cy + u*5.4))
+        else if mood == 3
+            p.push(chart.point.from_index(cx, cy + u*4.0))
+            p.push(chart.point.from_index(cx - math.round(dx*1.5), cy + u*3.4))
+            p.push(chart.point.from_index(cx, cy + u*4.0))
+            p.push(chart.point.from_index(cx + math.round(dx*1.5), cy + u*4.6))
+        else
+            p.push(chart.point.from_index(cx, cy + u*4.0))
+            p.push(chart.point.from_index(cx - dx, cy + u*3.0))
+            p.push(chart.point.from_index(cx, cy + u*4.0))
+            p.push(chart.point.from_index(cx + dx, cy + u*3.0))
+
+    polyline.new(p, curved = false, closed = false,
+         line_color = col, line_width = 2)
+
+var polyline[] men = array.new<polyline>()
+
+if showMen and barstate.islast
+    // eskilarini tozalash
+    if array.size(men) > 0
+        for pl in men
+            polyline.delete(pl)
+        array.clear(men)
+
+    float h = atr * 2.2 * menSize
+    float lo50 = ta.lowest(low, 50)
+    float hi50 = ta.highest(high, 50)
+
+    for i = 0 to menCount - 1
+        int off = 6 + i * 7
+        int bx  = bar_index - off * 3
+        if bx < 10
+            continue
+        float px = low[off * 3]
+        // holat: narx qayerda turganiga qarab
+        float rel = (px - lo50) / math.max(hi50 - lo50, syminfo.mintick)
+        int mood = rel > 0.75 ? 1 : rel < 0.25 ? 2 : (i % 2 == 0 ? 0 : 3)
+        color col = rel > 0.6 ? cUp : rel < 0.4 ? cDn : cAcc
+        array.push(men, f_stickman(bx, px - h * 0.15, h, color.new(col, 25), mood))
+
+// ---------------------------------------------------------------
+//  4) WATERMARK
+// ---------------------------------------------------------------
+var table wm = na
+if showWm and barstate.islast
+    table.delete(wm)
+    wm := table.new(position.middle_center, 1, 2)
+    string ts = wmSize == "Kichik" ? size.normal : wmSize == "O'rta" ? size.large :
+                wmSize == "Katta" ? size.huge : size.huge
+    table.cell(wm, 0, 0, wmTitle, text_color = color.new(cTx, 82),
+         text_size = ts, text_halign = text.align_center)
+    table.cell(wm, 0, 1, wmSub, text_color = color.new(cAcc, 76),
+         text_size = wmSize == "Ulkan" ? size.large : size.normal,
+         text_halign = text.align_center)
+
+// ---------------------------------------------------------------
+//  5) SHAM GLOW — kuchli shamlarga nur
+// ---------------------------------------------------------------
+bool strong = showGlow and math.abs(close - open) > atr * glowMult
+color glowC = close >= open ? cUp : cDn
+
+plotshape(strong and close >= open, "Kuchli bull", shape.circle,
+     location.belowbar, color.new(cUp, 55), size = size.tiny)
+plotshape(strong and close < open, "Kuchli bear", shape.circle,
+     location.abovebar, color.new(cDn, 55), size = size.tiny)
+
+bgcolor(strong ? color.new(glowC, 93) : na, title = "Glow fon")
+
+// nozik trend chizig'i (bezak, signal emas)
+ema21 = ta.ema(close, 21)
+plot(ema21, "EMA 21", color.new(cAcc, 45), 1)
+
+// sham ranglari
+barcolor(close >= open ? color.new(cUp, 15) : color.new(cDn, 15))
