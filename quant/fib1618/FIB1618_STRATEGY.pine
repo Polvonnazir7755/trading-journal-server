@@ -59,6 +59,8 @@ oteLo     = input.float(0.5,   "OTE quyi chegara", minval = 0.1, maxval = 0.9, s
 oteHi     = input.float(0.618, "OTE yuqori chegara", minval = 0.1, maxval = 0.95, step = 0.01, group = gE)
 waitBars  = input.int(30, "Kirishni kutish (bar)", minval = 1, group = gE,
      tooltip = "Neckline yorilgandan keyin shuncha bar ichida kirish nuqtasi kutiladi")
+limitMode = input.bool(true, "LIMIT ORDER rejimi (realistik)", group = gE,
+     tooltip = "YOQ (tavsiya): aynan limit order kabi ishlaydi.\nNarx zona chegarasiga TEGSA — savdo ochiladi, keyin narx qayerga ketishidan qat'i nazar.\nKirish narxi = zona chegarasi (limit narxi).\n\nO'CHIQ (eski): sham zona ICHIDA qolishi ham talab qilinadi.\nBu SELEKSIYA BIASI beradi (+8 pp WR) — narx zonaga kirib yuqoriga otilgan\nZARARLI savdolar hisobga olinmaydi, lekin real limit order ularni OLADI.\n\nAUDIT_KIRISH.md ga qarang.")
 
 gX = "CHIQISH (video qoidasi)"
 tp1Fib    = input.float(1.618, "TP1 'garant' (fib)", step = 0.1, group = gX)
@@ -463,8 +465,15 @@ if wSetup and wRange > 0 and strategy.position_size == 0 and inDate and barstate
     else if entryMode == "4-OTE 0.5-0.618"
         float zLo = f_lvl(wFib0, wRange, oteLo)
         float zHi = f_lvl(wFib0, wRange, oteHi)
-        wEntry := low <= zHi and low >= zLo and bar_index > wBreakBar
-        wPx := math.min(close, zHi)
+        // LONG: BUY LIMIT zona YUQORI chegarasida (zHi = fib 0.618, birinchi tegiladigan)
+        // limitMode: narx zHi ga tushsa yetarli (pastga otilib ketsa ham order to'lgan bo'lardi)
+        // eski rejim: sham zona ICHIDA qolishi ham talab qilinadi -> seleksiya biasi
+        // limitMode: order oldindan qo'yiladi (siz Exness'da shunday qilasiz).
+        //   Trigger = setupning BIRINCHI bari; narx zHi ga tegsa TradingView limitni to'ldiradi.
+        //   Narx tegmasa order osilib qoladi va oyna tugaganda bekor qilinadi.
+        // eski rejim: sham zona ICHIDA yopilishini kutadi -> seleksiya biasi
+        wEntry := limitMode ? (bar_index == wBreakBar + 1) : (low <= zHi and low >= zLo and bar_index > wBreakBar)
+        wPx := limitMode ? zHi : math.min(close, zHi)
     else if entryMode == "5-Imbalans (FVG)"
         wEntry := not na(wImbBot) and low <= wImbTop and low >= wImbBot and bar_index > wBreakBar
         wPx := math.min(close, wImbTop)
@@ -484,8 +493,15 @@ if mSetup and mRange > 0 and strategy.position_size == 0 and inDate and barstate
     else if entryMode == "4-OTE 0.5-0.618"
         float zHi = f_lvl(mFib0, -mRange, oteLo)
         float zLo = f_lvl(mFib0, -mRange, oteHi)
-        mEntry := high >= zLo and high <= zHi and bar_index > mBreakBar
-        mPx := math.max(close, zLo)
+        // SHORT: SELL LIMIT zona QUYI chegarasida (zLo = fib 0.618, birinchi tegiladigan)
+        // limitMode: narx zLo ga ko'tarilsa yetarli (yuqoriga otilib ketsa ham order to'lgan bo'lardi)
+        // eski rejim: sham zona ICHIDA qolishi ham talab qilinadi -> seleksiya biasi
+        // limitMode: order oldindan qo'yiladi (siz Exness'da shunday qilasiz).
+        //   Trigger = setupning BIRINCHI bari; narx zLo ga tegsa TradingView limitni to'ldiradi.
+        //   Narx tegmasa order osilib qoladi va oyna tugaganda bekor qilinadi.
+        // eski rejim: sham zona ICHIDA yopilishini kutadi -> seleksiya biasi
+        mEntry := limitMode ? (bar_index == mBreakBar + 1) : (high >= zLo and high <= zHi and bar_index > mBreakBar)
+        mPx := limitMode ? zLo : math.max(close, zLo)
     else if entryMode == "5-Imbalans (FVG)"
         mEntry := not na(mImbBot) and high >= mImbBot and high <= mImbTop and bar_index > mBreakBar
         mPx := math.max(close, mImbBot)
@@ -564,7 +580,11 @@ if wEntry
                 float rAmt = riskMode == "Dollar $" ? riskUsd : strategy.equity * riskPct / 100
                 float q = rAmt / (r + slipVal)
                 string tag = "W|" + entryMode + (useRadar ? (hadObst ? "|OBST" : "|CLEAR") : "")
-                strategy.entry("L", strategy.long, qty = q, comment = tag)
+                // limitMode: HAQIQIY limit order (zHi narxida to'ladi, sham yopilishida emas)
+                if limitMode and entryMode == "4-OTE 0.5-0.618"
+                    strategy.entry("L", strategy.long, qty = q, limit = e, comment = tag)
+                else
+                    strategy.entry("L", strategy.long, qty = q, comment = tag)
                 strategy.exit("Lx1", "L", qty_percent = tp1Pct, stop = sl - slipVal, limit = t1)
                 if tp1Pct < 100
                     strategy.exit("Lx2", "L", stop = sl - slipVal, limit = t2)
@@ -615,7 +635,11 @@ if mEntry
                 float rAmt = riskMode == "Dollar $" ? riskUsd : strategy.equity * riskPct / 100
                 float q = rAmt / (r + slipVal)
                 string tag = "M|" + entryMode + (useRadar ? (hadObst ? "|OBST" : "|CLEAR") : "")
-                strategy.entry("S", strategy.short, qty = q, comment = tag)
+                // limitMode: HAQIQIY limit order (zLo narxida to'ladi, sham yopilishida emas)
+                if limitMode and entryMode == "4-OTE 0.5-0.618"
+                    strategy.entry("S", strategy.short, qty = q, limit = e, comment = tag)
+                else
+                    strategy.entry("S", strategy.short, qty = q, comment = tag)
                 strategy.exit("Sx1", "S", qty_percent = tp1Pct, stop = sl + slipVal, limit = t1)
                 if tp1Pct < 100
                     strategy.exit("Sx2", "S", stop = sl + slipVal, limit = t2)
@@ -635,6 +659,33 @@ if mEntry
                         sumObstDist += obstR
                     else
                         nClear += 1
+
+// ---------------------------------------------------------------
+//  LIMIT ORDER MUDDATI (EXPIRY)
+//  Siz Exness'da Expiry qo'yasiz. Backtest ham xuddi shunday qilishi kerak,
+//  aks holda to'lmagan order abadiy osilib qoladi va kelajakda tasodifan to'ladi.
+//  Oyna (waitBars) tugasa — kutayotgan order BEKOR qilinadi.
+// ---------------------------------------------------------------
+var int pendBar = na
+var bool pendLong = false
+if limitMode and entryMode == "4-OTE 0.5-0.618"
+    if (wEntry or mEntry) and strategy.position_size == 0
+        pendBar := bar_index
+        pendLong := wEntry
+    // order hali to'lmagan va oyna tugadi -> bekor
+    if not na(pendBar) and strategy.position_size == 0
+        int lifeBars = bar_index - pendBar
+        if lifeBars > waitBars
+            strategy.cancel(pendLong ? "L" : "S")
+            pendBar := na
+            posEntry := na
+            posSL := na
+            posTP1 := na
+            posTP2 := na
+            posR := na
+    // savdo ochildi -> kuzatuvni tugatamiz
+    if strategy.position_size != 0
+        pendBar := na
 
 // TP1 urilganini aniqlash -> SL breakevenga
 // DIQQAT: tp1Pct=100 bo'lsa savdo TP1 da to'liq yopiladi va position_size 0 bo'ladi.
@@ -689,7 +740,7 @@ plot(strategy.position_size != 0 ? posEntry : na, "Entry", color.new(color.blue,
 var table st = na
 if showStat and barstate.islast
     table.delete(st)
-    st := table.new(position.top_right, 2, 19, border_width = 1, frame_color = color.new(color.gray, 50), frame_width = 1)
+    st := table.new(position.top_right, 2, 20, border_width = 1, frame_color = color.new(color.gray, 50), frame_width = 1)
     cG = color.new(color.green, 60)
     cB = color.new(color.red, 60)
     cN = color.new(color.gray, 60)
@@ -757,6 +808,9 @@ if showStat and barstate.islast
 
     table.cell(st, 0, 18, "XARAJAT", text_color = color.white, text_size = size.small, bgcolor = useCost ? color.new(color.orange, 40) : color.new(color.black, 25))
     table.cell(st, 1, 18, useCost ? str.tostring(costPips, "#.#") + " pip/savdo  (REALISTIK)" : "0 pip  (ALDAMCHI!)", text_color = color.white, text_size = size.small, bgcolor = useCost ? color.new(color.orange, 55) : cB)
+
+    table.cell(st, 0, 19, "KIRISH REJIMI", text_color = color.white, text_size = size.small, bgcolor = limitMode ? color.new(color.blue, 40) : color.new(color.red, 30))
+    table.cell(st, 1, 19, limitMode ? "LIMIT ORDER (realistik)" : "sham ichida (BIASLI +8pp)", text_color = color.white, text_size = size.small, bgcolor = limitMode ? color.new(color.blue, 60) : cB)
 
     table.cell(st, 0, 17, "  Bloklandi / TP kesildi", text_color = color.white, text_size = size.small, bgcolor = cH)
     float avgObst = nObst > 0 ? sumObstDist / nObst : 0
