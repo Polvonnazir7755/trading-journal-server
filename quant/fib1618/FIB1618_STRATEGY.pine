@@ -118,6 +118,17 @@ gV = "KO'RINISH"
 showViz  = input.bool(true, "Chizmalarni ko'rsatish", group = gV)
 showStat = input.bool(true, "Statistika jadvali", group = gV)
 
+gPL = "SAVDO REJASI (ENTRY / SL / TP chiziqlari)"
+showPlan  = input.bool(true, "Savdo rejasini ko'rsatish", group = gPL,
+     tooltip = "Faol setup uchun ENTRY (ko'k), SL (qizil), TP1 (yashil) chiziqlarini\nyozuvlari bilan chizadi. Limit orderni qayerga qo'yishni ko'rsatadi.")
+planRight = input.int(14, "Chiziqlar o'ngga cho'zilishi (bar)", minval = 2, maxval = 60, group = gPL)
+planWidth = input.int(2, "Chiziq qalinligi", minval = 1, maxval = 4, group = gPL)
+planSize  = input.string("normal", "Yozuv o'lchami", options = ["tiny", "small", "normal", "large"], group = gPL)
+planBal   = input.float(1000.0, "Hisob balansi ($) — lot hisobi uchun", minval = 10, step = 100, group = gPL)
+planRisk  = input.float(2.0, "Risk (%) — lot hisobi uchun", minval = 0.1, step = 0.5, group = gPL)
+showPanel = input.bool(true, "Savdo rejasi panelini ko'rsatish", group = gPL,
+     tooltip = "Pastki o'ng burchakda: Entry/SL/TP raqamlari, lot, risk $, RR, oyna qolgan bar")
+
 gD = "SANA ORALIG'I (bepul)"
 useDate  = input.bool(false, "Sana oralig'ini cheklash", group = gD)
 dtStart  = input.time(timestamp("01 Jul 2026 00:00 +0000"), "Boshlanish", group = gD)
@@ -803,3 +814,130 @@ plot(showViz and wSetup ? wZoneHi : na, "W OTE yuqori", color.new(color.green, 3
 plot(showViz and wSetup ? wZoneLo : na, "W OTE past",   color.new(color.green, 30), 1, plot.style_linebr)
 plot(showViz and mSetup ? mZoneHi : na, "M OTE yuqori", color.new(color.red, 30),   1, plot.style_linebr)
 plot(showViz and mSetup ? mZoneLo : na, "M OTE past",   color.new(color.red, 30),   1, plot.style_linebr)
+
+// ===============================================================
+//  SAVDO REJASI — ENTRY / SL / TP chiziqlari + yozuvlari
+//  Maqsad: limit orderni qayerga qo'yishni ko'z bilan ko'rish.
+//  Ustuvorlik: 1) ochiq savdo  2) faol M setup  3) faol W setup
+// ===============================================================
+planTxtSize = planSize == "tiny" ? size.tiny : planSize == "small" ? size.small : planSize == "large" ? size.large : size.normal
+
+var line  plE   = na
+var line  plS   = na
+var line  plT   = na
+var label lbE   = na
+var label lbS   = na
+var label lbT   = na
+var box   plBox = na
+var table plTab = na
+
+// --- reja qiymatlari (global, har barda qayta hisoblanadi)
+float pE = na
+float pS = na
+float pT = na
+float pZ = na
+bool  pLong  = false
+int   pStart = bar_index
+int   pLeft  = 0
+string pState = ""
+
+if strategy.position_size != 0 and not na(posEntry)
+    pE     := posEntry
+    pS     := posSL
+    pT     := posTP1
+    pLong  := posLong
+    pState := "SAVDO OCHIQ"
+    pStart := bar_index - 20
+else if mSetup and mRange > 0
+    pZ     := f_lvl(mFib0, -mRange, oteLo)     // zona yuqori (fib 0.5)
+    pE     := f_lvl(mFib0, -mRange, oteHi)     // zona quyi (fib 0.618) = SELL LIMIT narxi
+    pS     := mFib0 + mRange * slBufPct / 100
+    pT     := f_lvl(mFib0, -mRange, tp1Fib)
+    pLong  := false
+    pStart := mBreakBar
+    pLeft  := waitBars - (bar_index - mBreakBar)
+    pState := pLeft > 0 ? "SELL LIMIT qo'ying" : "OYNA YOPILDI"
+else if wSetup and wRange > 0
+    pZ     := f_lvl(wFib0, wRange, oteLo)
+    pE     := f_lvl(wFib0, wRange, oteHi)
+    pS     := wFib0 - wRange * slBufPct / 100
+    pT     := f_lvl(wFib0, wRange, tp1Fib)
+    pLong  := true
+    pStart := wBreakBar
+    pLeft  := waitBars - (bar_index - wBreakBar)
+    pState := pLeft > 0 ? "BUY LIMIT qo'ying" : "OYNA YOPILDI"
+
+// --- lot / risk hisobi
+float slDist   = na(pE) ? na : math.abs(pE - pS)
+float tpDist   = na(pE) ? na : math.abs(pT - pE)
+float planRR   = na(slDist) or slDist <= 0 ? na : tpDist / slDist
+float slPip    = na(slDist) ? na : slDist / pipVal
+float tpPip    = na(tpDist) ? na : tpDist / pipVal
+float planAmt  = planBal * planRisk / 100
+float lotRaw   = na(slPip) or slPip <= 0 ? na : planAmt / (slPip * 10)
+float planLot  = na(lotRaw) ? na : math.round(lotRaw * 100) / 100
+float planRiskUsd = na(planLot) ? na : planLot * slPip * 10
+float planProfUsd = na(planLot) ? na : planLot * tpPip * 10
+
+if showPlan and barstate.islast
+    line.delete(plE)
+    line.delete(plS)
+    line.delete(plT)
+    label.delete(lbE)
+    label.delete(lbS)
+    label.delete(lbT)
+    box.delete(plBox)
+    if not na(pE)
+        int xR = bar_index + planRight
+        // kirish zonasi (OTE 0.5-0.618)
+        if not na(pZ)
+            plBox := box.new(pStart, math.max(pE, pZ), xR, math.min(pE, pZ),
+                 border_color = color.new(color.gray, 60), bgcolor = color.new(color.gray, 88))
+        // chiziqlar
+        plE := line.new(pStart, pE, xR, pE, color = #2962FF, width = planWidth)
+        plS := line.new(pStart, pS, xR, pS, color = #F23645, width = planWidth)
+        plT := line.new(pStart, pT, xR, pT, color = #089981, width = planWidth)
+        // yozuvlar
+        lbE := label.new(xR, pE, "ENTRY  " + str.tostring(pE, format.mintick),
+             style = label.style_label_left, color = #2962FF, textcolor = color.white, size = planTxtSize)
+        lbS := label.new(xR, pS, "SL  " + str.tostring(pS, format.mintick),
+             style = label.style_label_left, color = #F23645, textcolor = color.white, size = planTxtSize)
+        lbT := label.new(xR, pT, "TP  " + str.tostring(pT, format.mintick),
+             style = label.style_label_left, color = #089981, textcolor = color.white, size = planTxtSize)
+
+// --- panel
+if showPlan and showPanel and barstate.islast
+    table.delete(plTab)
+    if not na(pE)
+        plTab := table.new(position.bottom_right, 2, 10, border_width = 1, border_color = color.new(color.gray, 50))
+        table.cell(plTab, 0, 0, "SAVDO REJASI", bgcolor = #1F3864, text_color = color.white, text_size = size.small)
+        table.cell(plTab, 1, 0, pLong ? "LONG (sotib olish)" : "SHORT (sotish)",
+             bgcolor = pLong ? #089981 : #F23645, text_color = color.white, text_size = size.small)
+
+        table.cell(plTab, 0, 1, "Holat", bgcolor = color.new(color.black, 15), text_color = color.silver, text_size = size.small, text_halign = text.align_left)
+        table.cell(plTab, 1, 1, pState, bgcolor = pLeft > 0 or pState == "SAVDO OCHIQ" ? color.new(#089981, 30) : color.new(#F23645, 30), text_color = color.white, text_size = size.small)
+
+        table.cell(plTab, 0, 2, "ENTRY", bgcolor = color.new(color.black, 15), text_color = color.silver, text_size = size.small, text_halign = text.align_left)
+        table.cell(plTab, 1, 2, str.tostring(pE, format.mintick), bgcolor = color.new(#2962FF, 25), text_color = color.white, text_size = size.small)
+
+        table.cell(plTab, 0, 3, "SL", bgcolor = color.new(color.black, 15), text_color = color.silver, text_size = size.small, text_halign = text.align_left)
+        table.cell(plTab, 1, 3, str.tostring(pS, format.mintick) + "   " + str.tostring(slPip, "#.#") + " pip", bgcolor = color.new(#F23645, 25), text_color = color.white, text_size = size.small)
+
+        table.cell(plTab, 0, 4, "TP", bgcolor = color.new(color.black, 15), text_color = color.silver, text_size = size.small, text_halign = text.align_left)
+        table.cell(plTab, 1, 4, str.tostring(pT, format.mintick) + "   " + str.tostring(tpPip, "#.#") + " pip", bgcolor = color.new(#089981, 25), text_color = color.white, text_size = size.small)
+
+        table.cell(plTab, 0, 5, "RR", bgcolor = color.new(color.black, 15), text_color = color.silver, text_size = size.small, text_halign = text.align_left)
+        table.cell(plTab, 1, 5, "1 : " + str.tostring(planRR, "#.##"), bgcolor = color.new(color.black, 15), text_color = color.white, text_size = size.small)
+
+        table.cell(plTab, 0, 6, "LOT", bgcolor = color.new(color.black, 15), text_color = color.silver, text_size = size.small, text_halign = text.align_left)
+        table.cell(plTab, 1, 6, str.tostring(planLot, "#.##"), bgcolor = color.new(color.orange, 35), text_color = color.white, text_size = size.small)
+
+        table.cell(plTab, 0, 7, "Risk", bgcolor = color.new(color.black, 15), text_color = color.silver, text_size = size.small, text_halign = text.align_left)
+        table.cell(plTab, 1, 7, "$" + str.tostring(planRiskUsd, "#.##") + "  (" + str.tostring(planRiskUsd / planBal * 100, "#.##") + "%)", bgcolor = color.new(color.black, 15), text_color = color.white, text_size = size.small)
+
+        table.cell(plTab, 0, 8, "Foyda", bgcolor = color.new(color.black, 15), text_color = color.silver, text_size = size.small, text_halign = text.align_left)
+        table.cell(plTab, 1, 8, "$" + str.tostring(planProfUsd, "#.##"), bgcolor = color.new(color.black, 15), text_color = color.white, text_size = size.small)
+
+        table.cell(plTab, 0, 9, "Oyna", bgcolor = color.new(color.black, 15), text_color = color.silver, text_size = size.small, text_halign = text.align_left)
+        table.cell(plTab, 1, 9, pState == "SAVDO OCHIQ" ? "-" : str.tostring(math.max(pLeft, 0)) + " bar qoldi",
+             bgcolor = pLeft > 3 ? color.new(#089981, 30) : color.new(color.orange, 30), text_color = color.white, text_size = size.small)
