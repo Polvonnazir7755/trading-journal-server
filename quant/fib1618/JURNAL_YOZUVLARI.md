@@ -102,3 +102,79 @@ Order qo'yildi: 11-sent 07:36 UTC = 39-bar  ->  9 bar KECH
 ```
 
 Keyingi setuplarda **Expiry majburiy**: `qolgan bar x 30 daqiqa`.
+
+---
+
+# YANGILANISH — 11-sent 15:52
+
+## Order #2351247956 natijasi: ISHLAMADI
+
+Narx 1.16077 dan pastga ketdi (1.15910 gacha), Sell Limit 1.16313 ga
+**qaytmadi**. Order to'lmagan.
+
+### Jurnalga:
+Yozuv #2 dagi **G, H, I, L ustunlarini o'chiring** (Kirish/SL/TP/Risk).
+Faqat sana, aktiv, yo'nalish va izoh qolsin:
+
+```
+Izoh: SELL LIMIT #2351247956 (1.16313) ISHLAMADI - narx zonaga qaytmadi.
+      Order oynadan tashqarida qo'yilgan edi (39-bar / 30). Zarar YO'Q.
+```
+
+Bu **backtestdagi 54.8% savdosiz setup** guruhiga tushadi — normal natija.
+
+---
+
+## Setup konversiya jadvali (yangilangan)
+
+| # | Sana | Yo'nalish | Order | Natija | Izoh |
+|---|---|---|---|---|---|
+| 1 | ~28.08 | — | Yo'q | — | eskirgan setup |
+| 2 | ~05.09 | — | Yo'q | — | eskirgan setup |
+| 3 | 10.09 | SHORT | Yo'q | zonaga tegdi | agent xatosi — imkoniyat ketdi |
+| 4 | 11.09 | SHORT | Ha (kech) | **to'lmadi** | oynadan tashqari |
+
+**Holat: 4 setup, 0 savdo, 0 zarar, 0 foyda.**
+
+---
+
+## Backtest yangilandi (34-savdo)
+
+| Ko'rsatkich | 33 savdo | 34 savdo |
+|---|---|---|
+| Net PnL | $623.11 | **$663.04** (+66.30%) |
+| Profit factor | 4.506 | **4.538** |
+| Max DD | $47.22 (4.57%) | $47.22 (**4.57%**) |
+| Win rate | 72.73% | **73.53%** (25/34) |
+| Zarar | 7 | 7 |
+| BE | 2 | 2 |
+| Recovery factor | 13.2 | **14.04** |
+| Expectancy | +0.944R | **+0.975R** |
+| O'rtacha foyda | — | +0.27% |
+| O'rtacha zarar | — | −0.16% |
+
+**WR 95% CI:** 61.2% – 89.0% (kenglik 27.7 pp; oldin 28.4 pp).
+Bitta savdo CI ni atigi **0.7 punktga** toraytirdi.
+
+### DIQQAT — bu yangi dalil EMAS
+
+34-savdo ham **o'sha in-sample ma'lumotda**. Strategiya shu ma'lumotda
+sozlangan (pivot 5 tanlangan). Backtest natijasining yaxshilanishi
+kelajakdagi natija haqida yangi ma'lumot bermaydi.
+
+Yangi dalil = **demo savdo**. Bizda hozircha **0 ta**.
+
+---
+
+## Risk qarori: 2%
+
+`RISK_TAHLIL.md` asosida. Bosqichli oshirish:
+
+| n (demo) | Shart | Risk |
+|---|---|---|
+| 0 → 30 | hozir | **2%** |
+| 30 | PF > 1.5 | 3% |
+| 60 | PF > 1.8 | 5% |
+| 100 | PF > 2.0, DD < 15% | 5% + real pul |
+
+TradingView panelida: `Hisob balansi ($)` = 1000, `Risk (%)` = 2.0
