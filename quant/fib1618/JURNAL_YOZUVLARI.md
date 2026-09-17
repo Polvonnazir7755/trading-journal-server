@@ -178,3 +178,72 @@ Yangi dalil = **demo savdo**. Bizda hozircha **0 ta**.
 | 100 | PF > 2.0, DD < 15% | 5% + real pul |
 
 TradingView panelida: `Hisob balansi ($)` = 1000, `Risk (%)` = 2.0
+
+---
+
+# 1-DEMO SAVDO — TP (17-sent 2026)
+
+## Jurnalga (SAVDO_JURNALI.xlsx, "Savdolar" varag'i)
+
+| Ustun | Qiymat |
+|---|---|
+| B Sana | `17.09.2026` |
+| C Vaqt | `13:13` *(Toshkent; Exness UK 08:13)* |
+| D Aktiv | `EURUSD` |
+| E TF | `M30` |
+| F Yo'nalish | `LONG` |
+| G Kirish | `1.14686` |
+| H SL | `1.14557` |
+| I TP | `1.14889` |
+| J Chiqish | `1.14889` |
+| L Risk $ | `19.35` |
+| N Izoh | `BIRINCHI DEMO SAVDO. Buy Limit #2389494900, lot 0.15. TP urildi. Davomiylik 4s 08daq (8.3 bar). Spred ta'siri 0 - TP aynan urildi.` |
+
+K (Natija R) avtomatik: **+1.57R**
+M (Foyda $) avtomatik: **+$30.45**
+
+---
+
+## Natija
+
+```
+Entry    1.14686
+Chiqish  1.14889   (+20.3 pip)
+Lot      0.15
+P/L      +$30.45   = +1.574R  = +3.04% balansdan
+Balans   $1,000.00 -> $1,030.45
+Davomiylik  4 soat 08 daqiqa (8.3 bar M30)
+```
+
+**Hisobim bilan farq: $0.00.** Kutilgan foyda $30.45, haqiqiy $30.45.
+Spred/slippage ta'siri nol — TP aynan urildi.
+
+---
+
+## Statistika holati
+
+```
+Demo savdolar:  1 / 30
+WR:             1/1 = 100%   95% CI: 20.7% - 100%
+PF:             cheksiz (0 zarar)
+```
+
+**Bu raqamlar ma'nosiz.** n=1 da CI 20.7% dan 100% gacha — ya'ni hech narsa
+bilmaymiz. Birinchi savdo yutuq bo'lishi 59% ehtimol bilan kutilgan edi.
+
+Backtest kutilmasi: WR 59.18%, expectancy +0.59R.
+Bu savdo: +1.57R (to'liq TP).
+
+**29 savdo qoldi.**
+
+---
+
+## Nima to'g'ri ketdi
+
+1. Chiziqlar ishladi — Entry/SL/TP ni panelda ko'rdingiz
+2. Lot avtomatik hisoblandi (0.15), risk 1.94% — rejaga mos
+3. Limit order to'ldi, Expiry kerak bo'lmadi
+4. TP aynan urildi, slippage yo'q
+5. Qo'l tekkizilmadi — SL ko'chirilmadi, erta yopilmadi
+
+Protsess toza ishladi. Natija ikkinchi darajali.
