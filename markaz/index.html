@@ -1,0 +1,707 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Biologiya Kimyo O'quv Markazi — Boshqaruv paneli</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --navy-1:#0A1834; --navy-2:#0D2149; --navy-3:#123064;
+  --blue:#2563EB; --blue-2:#3B82F6; --blue-soft:#EAF2FE;
+  --green:#10B981; --green-2:#34D399; --green-soft:#E7F8F0;
+  --purple:#8B5CF6; --purple-soft:#F1EBFD;
+  --orange:#F59E0B; --orange-soft:#FFF2E3;
+  --red:#EF4444; --red-soft:#FDECEC;
+  --ink:#0F172A; --ink-2:#475569; --ink-3:#94A3B8;
+  --line:#E8EEF7; --card:#fff;
+  --shadow-sm:0 1px 2px rgba(15,23,42,.05);
+  --shadow:0 4px 16px rgba(15,23,42,.06);
+  --shadow-lg:0 12px 40px rgba(15,23,42,.10);
+}
+body{
+  font-family:'Inter','Segoe UI',-apple-system,BlinkMacSystemFont,Roboto,Arial,sans-serif;
+  background:#DCE7F5; color:var(--ink);
+  -webkit-font-smoothing:antialiased; padding:22px;
+  font-feature-settings:'cv11','ss01';
+}
+.app{
+  max-width:1568px; margin:0 auto; display:grid;
+  grid-template-columns:440px 1fr; min-height:952px;
+  border-radius:26px; overflow:hidden; box-shadow:var(--shadow-lg); background:#fff;
+}
+
+/* ============ SIDEBAR ============ */
+.side{
+  background:linear-gradient(170deg,var(--navy-2) 0%,var(--navy-1) 55%,#08142B 100%);
+  padding:26px 22px 22px; display:flex; flex-direction:column; position:relative;
+}
+.side::after{
+  content:''; position:absolute; inset:0; pointer-events:none;
+  background:radial-gradient(520px 300px at 88% -6%,rgba(59,130,246,.16),transparent 62%),
+             radial-gradient(400px 260px at -8% 104%,rgba(16,185,129,.10),transparent 60%);
+}
+.side>*{position:relative;z-index:1}
+
+.brand{display:flex;align-items:center;gap:15px;margin-bottom:26px}
+.brand-logo{
+  width:56px;height:56px;border-radius:17px;flex:none;
+  background:linear-gradient(145deg,#12D18E,#059669);
+  display:grid;place-items:center;
+  box-shadow:0 8px 22px rgba(16,185,129,.38),inset 0 1px 0 rgba(255,255,255,.35);
+}
+.brand-txt{flex:1;min-width:0}
+.brand-txt h1{font-size:17px;font-weight:800;color:#fff;letter-spacing:.3px;line-height:1.15}
+.brand-txt span{font-size:11.5px;color:#7E93B8;letter-spacing:1.5px;font-weight:600}
+.icon-btn{
+  width:42px;height:42px;border-radius:13px;flex:none;cursor:pointer;
+  background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.10);
+  display:grid;place-items:center;transition:.18s;
+}
+.icon-btn:hover{background:rgba(255,255,255,.13)}
+
+.search{
+  display:flex;align-items:center;gap:11px;padding:0 14px;height:50px;
+  background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.09);
+  border-radius:15px;margin-bottom:22px;transition:.18s;
+}
+.search:focus-within{background:rgba(255,255,255,.10);border-color:rgba(59,130,246,.5)}
+.search input{
+  flex:1;background:none;border:none;outline:none;color:#fff;font-size:14.5px;
+  font-family:inherit;
+}
+.search input::placeholder{color:#64789C}
+.search .sep{width:1px;height:20px;background:rgba(255,255,255,.12)}
+
+.chats{display:flex;flex-direction:column;gap:2px;margin:0 -8px}
+.chat{
+  display:flex;align-items:center;gap:14px;padding:13px 14px;border-radius:15px;
+  cursor:pointer;transition:.16s;position:relative;
+}
+.chat:hover{background:rgba(255,255,255,.055)}
+.chat.on{
+  background:linear-gradient(100deg,#2563EB,#1D4FD8);
+  box-shadow:0 8px 24px rgba(37,99,235,.42);
+}
+.av{
+  width:50px;height:50px;border-radius:15px;flex:none;display:grid;place-items:center;
+  font-weight:700;font-size:17px;color:#C3D4EE;background:rgba(255,255,255,.09);
+}
+.chat.on .av{background:rgba(255,255,255,.22);color:#fff}
+.chat-body{flex:1;min-width:0}
+.chat-top{display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin-bottom:3px}
+.chat-name{font-size:14.5px;font-weight:650;color:#D7E2F2}
+.chat.on .chat-name{color:#fff;font-weight:700}
+.chat-time{font-size:11.5px;color:#61789B;flex:none}
+.chat.on .chat-time{color:rgba(255,255,255,.82)}
+.chat-msg{
+  font-size:12.8px;color:#6E83A6;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.chat.on .chat-msg{color:rgba(255,255,255,.85)}
+.badge-n{
+  min-width:22px;height:22px;padding:0 6px;border-radius:11px;flex:none;
+  background:#2563EB;color:#fff;font-size:11.5px;font-weight:700;
+  display:grid;place-items:center;
+}
+.chat.on .badge-n{background:#fff;color:#1D4FD8}
+
+.promo{
+  margin-top:auto;margin-bottom:18px;border-radius:21px;padding:24px 22px;position:relative;
+  overflow:hidden;background:linear-gradient(140deg,#0E3A5C 0%,#0C2E4E 50%,#0A2440 100%);
+  border:1px solid rgba(52,211,153,.18);
+}
+.promo::before{
+  content:'';position:absolute;right:-34px;bottom:-40px;width:190px;height:190px;
+  background:radial-gradient(circle,rgba(16,185,129,.30),transparent 68%);
+}
+.promo-ico{
+  width:50px;height:50px;border-radius:15px;margin-bottom:15px;position:relative;
+  background:linear-gradient(145deg,rgba(16,185,129,.28),rgba(16,185,129,.12));
+  border:1px solid rgba(52,211,153,.32);display:grid;place-items:center;
+}
+.promo h3{font-size:17px;font-weight:750;color:#fff;margin-bottom:6px;position:relative}
+.promo p{font-size:13px;color:#8FA9C4;line-height:1.5;margin-bottom:18px;position:relative}
+.promo-btn{
+  display:inline-flex;align-items:center;gap:9px;padding:11px 20px;border-radius:13px;
+  background:#fff;color:#0A1834;font-size:13.5px;font-weight:700;cursor:pointer;
+  position:relative;transition:.18s;box-shadow:0 4px 14px rgba(0,0,0,.2);
+}
+.promo-btn:hover{transform:translateY(-1px)}
+.leaf-deco{position:absolute;right:14px;bottom:8px;opacity:.5}
+
+.me{
+  display:flex;align-items:center;gap:14px;padding:13px 14px;border-radius:16px;
+  background:rgba(255,255,255,.055);border:1px solid rgba(255,255,255,.08);cursor:pointer;
+  transition:.18s;
+}
+.me:hover{background:rgba(255,255,255,.09)}
+.me .av{background:linear-gradient(145deg,#3B82F6,#1D4FD8);color:#fff}
+.me-body{flex:1;min-width:0}
+.me-name{font-size:14px;font-weight:650;color:#fff;line-height:1.3}
+.me-role{font-size:12px;color:#6E83A6}
+
+/* ============ MAIN ============ */
+.main{
+  background:linear-gradient(165deg,#F4F9FF 0%,#EDF4FD 45%,#E8F1FC 100%);
+  padding:30px 34px; position:relative; overflow:hidden;
+  display:flex;flex-direction:column;
+}
+.bg-deco{position:absolute;top:-10px;right:0;pointer-events:none;opacity:.85}
+
+.head{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:26px;position:relative}
+.eyebrow{
+  display:flex;align-items:center;gap:9px;font-size:13px;font-weight:750;
+  color:var(--green);letter-spacing:.7px;margin-bottom:9px;
+}
+.head h2{font-size:41px;font-weight:800;letter-spacing:-1.1px;line-height:1.08;margin-bottom:11px}
+.tagline{display:flex;align-items:center;gap:9px;font-size:14.5px;color:#5C7292}
+.head-r{display:flex;align-items:center;gap:13px;flex:none}
+.bell{
+  width:47px;height:47px;border-radius:15px;background:#fff;display:grid;place-items:center;
+  box-shadow:var(--shadow);position:relative;cursor:pointer;transition:.18s;
+}
+.bell:hover{transform:translateY(-1px);box-shadow:var(--shadow-lg)}
+.bell .dot{
+  position:absolute;top:11px;right:12px;width:9px;height:9px;border-radius:50%;
+  background:var(--red);border:2px solid #fff;
+}
+.user-chip{
+  display:flex;align-items:center;gap:11px;padding:7px 15px 7px 7px;border-radius:15px;
+  background:#fff;box-shadow:var(--shadow);cursor:pointer;transition:.18s;
+}
+.user-chip:hover{transform:translateY(-1px);box-shadow:var(--shadow-lg)}
+.user-chip .pp{
+  width:34px;height:34px;border-radius:11px;display:grid;place-items:center;
+  background:linear-gradient(145deg,#3B82F6,#1D4FD8);color:#fff;font-size:12.5px;font-weight:750;
+}
+.user-chip b{font-size:14px;font-weight:650}
+.sun{
+  width:47px;height:47px;border-radius:15px;display:grid;place-items:center;cursor:pointer;
+  transition:.18s;
+}
+.sun:hover{background:rgba(255,255,255,.7)}
+
+/* stat cards */
+.stats{
+  display:grid;grid-template-columns:repeat(4,1fr);gap:19px;background:#fff;
+  padding:19px;border-radius:24px;box-shadow:var(--shadow);margin-bottom:22px;position:relative;
+}
+.stat{border-radius:19px;padding:19px;position:relative;overflow:hidden;cursor:pointer;transition:.2s}
+.stat:hover{transform:translateY(-3px)}
+.stat.g{background:linear-gradient(150deg,#EAF9F1,#DFF5EA)}
+.stat.b{background:linear-gradient(150deg,#EAF3FE,#DFECFD)}
+.stat.p{background:linear-gradient(150deg,#F2ECFD,#EBE2FC)}
+.stat.o{background:linear-gradient(150deg,#FFF4E8,#FFEDDC)}
+.stat-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:19px}
+.stat-ico{width:50px;height:50px;border-radius:16px;display:grid;place-items:center;background:#fff;box-shadow:0 3px 10px rgba(15,23,42,.07)}
+.go{
+  width:29px;height:29px;border-radius:50%;background:rgba(255,255,255,.85);
+  display:grid;place-items:center;transition:.18s;
+}
+.stat:hover .go{background:#fff;transform:translateX(2px)}
+.stat-label{font-size:14.5px;font-weight:650;color:#3D5573;margin-bottom:7px}
+.stat-num{font-size:37px;font-weight:800;letter-spacing:-1.3px;line-height:1;margin-bottom:8px}
+.stat-sub{font-size:12.5px;color:#7089A8;margin-bottom:11px}
+.bar{height:6px;border-radius:3px;background:rgba(255,255,255,.75);overflow:hidden}
+.bar i{display:block;height:100%;border-radius:3px}
+.spark{height:30px;margin-top:-4px}
+
+/* panels */
+.grid2{display:grid;grid-template-columns:1fr 468px;gap:22px;margin-bottom:22px}
+.panel{background:#fff;border-radius:24px;padding:24px;box-shadow:var(--shadow)}
+.panel-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.panel-title{display:flex;align-items:center;gap:12px;font-size:20px;font-weight:750;letter-spacing:-.4px}
+.panel-title .pi{width:34px;height:34px;border-radius:11px;display:grid;place-items:center}
+.all{display:flex;align-items:center;gap:6px;font-size:13.5px;font-weight:650;color:var(--blue);cursor:pointer}
+.all:hover{gap:9px}
+
+.row{
+  display:flex;align-items:center;gap:15px;padding:16px 4px;cursor:pointer;
+  border-bottom:1px solid var(--line);transition:.16s;border-radius:12px;
+}
+.row:last-child{border-bottom:none}
+.row:hover{background:#F8FBFF;padding-left:12px;padding-right:12px}
+.dot{width:11px;height:11px;border-radius:50%;flex:none}
+.row-body{flex:1;min-width:0}
+.row-t{font-size:15px;font-weight:650;margin-bottom:4px;letter-spacing:-.1px}
+.row-s{font-size:13px;color:#7089A8;line-height:1.45}
+.row-time{font-size:12.5px;color:#93A7C0;flex:none;font-variant-numeric:tabular-nums}
+.tag{
+  padding:6px 13px;border-radius:9px;font-size:11.5px;font-weight:750;letter-spacing:.5px;flex:none;
+}
+.tag.red{background:var(--red-soft);color:#DC2626}
+.tag.orange{background:#FFECE0;color:#E06B14}
+.tag.yellow{background:#FFF3D6;color:#C98407}
+.tag.green{background:var(--green-soft);color:#059669}
+
+.topic{
+  background:linear-gradient(140deg,#F6FAFF,#EFF6FE);border:1px solid #E4EDFA;
+  border-radius:17px;padding:17px;margin:16px 0 20px;
+}
+.topic-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:9px}
+.topic-lab{font-size:13px;color:#7089A8;font-weight:600}
+.topic-name{font-size:15.5px;font-weight:700;letter-spacing:-.2px}
+.chip-ok{
+  padding:6px 13px;border-radius:9px;background:var(--green-soft);color:#059669;
+  font-size:11px;font-weight:750;letter-spacing:.5px;
+}
+
+.prog{margin-bottom:19px}
+.prog:last-child{margin-bottom:0}
+.prog-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:9px}
+.prog-name{font-size:14.5px;font-weight:650}
+.prog-sub{font-size:12.5px;color:#8298B4}
+.prog-n{
+  padding:5px 12px;border-radius:9px;background:var(--blue-soft);color:#2563EB;
+  font-size:12.5px;font-weight:700;
+}
+.track{height:7px;background:#EEF3FA;border-radius:4px;overflow:hidden}
+.track i{display:block;height:100%;border-radius:4px}
+
+.schedule{
+  background:#fff;border-radius:20px;padding:17px 22px;box-shadow:var(--shadow);
+  display:flex;align-items:center;gap:15px;cursor:pointer;transition:.18s;margin-bottom:22px;
+}
+.schedule:hover{transform:translateY(-2px);box-shadow:var(--shadow-lg)}
+.sch-ico{width:44px;height:44px;border-radius:14px;background:var(--green-soft);display:grid;place-items:center;flex:none}
+.sch-body{flex:1}
+.sch-t{font-size:15.5px;font-weight:700;margin-bottom:3px}
+.sch-s{font-size:13px;color:#7089A8}
+
+/* bottom nav */
+.nav{
+  background:#fff;border-radius:22px;padding:9px;box-shadow:var(--shadow);
+  display:grid;grid-template-columns:repeat(7,1fr);gap:5px;margin-top:auto;
+}
+.nav-i{
+  display:flex;flex-direction:column;align-items:center;gap:7px;padding:13px 6px;
+  border-radius:15px;cursor:pointer;transition:.16s;color:#8298B4;
+}
+.nav-i:hover{background:#F4F8FE;color:#475569}
+.nav-i span{font-size:12.5px;font-weight:650}
+.nav-i.on{background:linear-gradient(140deg,#EAF2FE,#DFEBFD);color:var(--blue)}
+.nav-i.on span{font-weight:750}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- ==================== SIDEBAR ==================== -->
+  <aside class="side">
+    <div class="brand">
+      <div class="brand-logo">
+        <svg width="30" height="30" viewBox="0 0 24 24" fill="none">
+          <path d="M12 21c0-7 3.5-11.5 9-13-1 7.5-4 12-9 13z" fill="#fff" opacity=".95"/>
+          <path d="M12 21C8.5 15 5.5 12.5 3 12c1.5 5 4.5 8 9 9z" fill="#fff" opacity=".7"/>
+          <path d="M12 21V11" stroke="#047857" stroke-width="1.6" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <div class="brand-txt">
+        <h1>BIOLOGIYA KIMYO</h1>
+        <span>O'QUV MARKAZI</span>
+      </div>
+      <div class="icon-btn">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#9FB3D0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M17 3a2.8 2.8 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/>
+        </svg>
+      </div>
+    </div>
+
+    <div class="search">
+      <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#64789C" stroke-width="2" stroke-linecap="round">
+        <circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>
+      </svg>
+      <input placeholder="Suhbat qidirish...">
+      <div class="sep"></div>
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#64789C" stroke-width="2" stroke-linecap="round">
+        <path d="M4 6h16M7 12h10M10 18h4"/>
+      </svg>
+    </div>
+
+    <div class="chats">
+      <div class="chat on">
+        <div class="av">D</div>
+        <div class="chat-body">
+          <div class="chat-top"><span class="chat-name">Dilnoza Karimova</span><span class="chat-time">10:24</span></div>
+          <div class="chat-msg">Rahmat, albatta. Dars jadvali haqida...</div>
+        </div>
+        <div class="badge-n">2</div>
+      </div>
+      <div class="chat">
+        <div class="av">H</div>
+        <div class="chat-body">
+          <div class="chat-top"><span class="chat-name">Hurmat</span><span class="chat-time">09:45</span></div>
+          <div class="chat-msg">Bugungi mavzu topshirish...</div>
+        </div>
+        <div class="badge-n">1</div>
+      </div>
+      <div class="chat">
+        <div class="av">X</div>
+        <div class="chat-body">
+          <div class="chat-top"><span class="chat-name">Xushnud</span><span class="chat-time">08:32</span></div>
+          <div class="chat-msg">10-B bo'yicha ma'lumot</div>
+        </div>
+      </div>
+      <div class="chat">
+        <div class="av">A</div>
+        <div class="chat-body">
+          <div class="chat-top"><span class="chat-name">Amirxon</span><span class="chat-time">08:15</span></div>
+          <div class="chat-msg">Tekshiruvlar kiritildi</div>
+        </div>
+      </div>
+      <div class="chat">
+        <div class="av">C</div>
+        <div class="chat-body">
+          <div class="chat-top"><span class="chat-name">Charos</span><span class="chat-time">07:50</span></div>
+          <div class="chat-msg">Bugungi vazifa bajarildi</div>
+        </div>
+      </div>
+      <div class="chat">
+        <div class="av">O</div>
+        <div class="chat-body">
+          <div class="chat-top"><span class="chat-name">Oshpaz</span><span class="chat-time">07:20</span></div>
+          <div class="chat-msg">4 kg go'sht yetishmayapti</div>
+        </div>
+        <div class="badge-n">1</div>
+      </div>
+    </div>
+
+    <div class="promo">
+      <div class="promo-ico">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#34D399" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M9 3h6M10 3v6.5L5 18a2.5 2.5 0 0 0 2.1 3.9h9.8A2.5 2.5 0 0 0 19 18l-5-8.5V3"/>
+          <path d="M7 15h10"/>
+        </svg>
+      </div>
+      <h3>Bilimingni kengaytir!</h3>
+      <p>Biologiya fanidan yangi mavzular</p>
+      <div class="promo-btn">
+        Boshlash
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M5 12h13M13 6l6 6-6 6"/>
+        </svg>
+      </div>
+      <svg class="leaf-deco" width="88" height="88" viewBox="0 0 24 24" fill="none">
+        <path d="M12 21c0-7 3.5-11.5 9-13-1 7.5-4 12-9 13z" fill="#10B981" opacity=".55"/>
+        <path d="M12 21C8.5 15 5.5 12.5 3 12c1.5 5 4.5 8 9 9z" fill="#10B981" opacity=".32"/>
+      </svg>
+    </div>
+
+    <div class="me">
+      <div class="av">PP</div>
+      <div class="me-body">
+        <div class="me-name">Polvonnazir Polvonov</div>
+        <div class="me-role">Admin</div>
+      </div>
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#61789B" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M9 6l6 6-6 6"/>
+      </svg>
+    </div>
+  </aside>
+
+  <!-- ==================== MAIN ==================== -->
+  <main class="main">
+    <svg class="bg-deco" width="430" height="260" viewBox="0 0 430 260" fill="none">
+      <path d="M300 10c0 30 40 30 40 60s-40 30-40 60 40 30 40 60" stroke="#BFDBFE" stroke-width="3.5" stroke-linecap="round" opacity=".7"/>
+      <path d="M340 10c0 30-40 30-40 60s40 30 40 60-40 30-40 60" stroke="#93C5FD" stroke-width="3.5" stroke-linecap="round" opacity=".7"/>
+      <path d="M303 32h34M300 55h40M300 85h40M303 108h34M303 152h34M300 175h40M300 205h40" stroke="#A5C9F7" stroke-width="2.6" stroke-linecap="round" opacity=".55"/>
+      <path d="M160 40c0 46 22 74 58 84-6-48-26-74-58-84z" fill="#34D399" opacity=".55"/>
+      <path d="M232 128c34-12 54-42 56-88-38 16-56 46-56 88z" fill="#10B981" opacity=".42"/>
+      <path d="M196 26c14 40 10 76-12 100" stroke="#059669" stroke-width="2" stroke-linecap="round" opacity=".35"/>
+      <circle cx="120" cy="150" r="42" fill="#DBEAFE" opacity=".5"/>
+      <circle cx="404" cy="196" r="30" fill="#D1FAE5" opacity=".6"/>
+    </svg>
+
+    <div class="head">
+      <div>
+        <div class="eyebrow">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none">
+            <path d="M12 21c0-7 3.5-11.5 9-13-1 7.5-4 12-9 13z" fill="#10B981"/>
+            <path d="M12 21C8.5 15 5.5 12.5 3 12c1.5 5 4.5 8 9 9z" fill="#34D399"/>
+          </svg>
+          BIOLOGIYA KIMYO O'QUV MARKAZI
+        </div>
+        <h2>Bugungi markaz holati</h2>
+        <div class="tagline">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none">
+            <path d="M12 21c0-7 3.5-11.5 9-13-1 7.5-4 12-9 13z" fill="#34D399"/>
+            <path d="M12 21C8.5 15 5.5 12.5 3 12c1.5 5 4.5 8 9 9z" fill="#6EE7B7"/>
+          </svg>
+          Bilim – sog'lom kelajak garovi
+        </div>
+      </div>
+      <div class="head-r">
+        <div class="bell">
+          <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="#475569" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 0 1-3.4 0"/>
+          </svg>
+          <span class="dot"></span>
+        </div>
+        <div class="user-chip">
+          <div class="pp">PP</div>
+          <b>Shodlik</b>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M6 9l6 6 6-6"/>
+          </svg>
+        </div>
+        <div class="sun">
+          <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round">
+            <circle cx="12" cy="12" r="4.5"/>
+            <path d="M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M19.1 4.9l-1.8 1.8M6.7 17.3l-1.8 1.8"/>
+          </svg>
+        </div>
+      </div>
+    </div>
+
+    <!-- STAT CARDS -->
+    <div class="stats">
+      <div class="stat g">
+        <div class="stat-top">
+          <div class="stat-ico">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M17 20v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>
+              <path d="M23 20v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>
+            </svg>
+          </div>
+          <div class="go"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></div>
+        </div>
+        <div class="stat-label">Muhim vaziyatlar</div>
+        <div class="stat-num">4</div>
+        <div class="stat-sub">hozir nazoratda</div>
+        <svg class="spark" width="100%" height="30" viewBox="0 0 150 30" preserveAspectRatio="none">
+          <path d="M0 24 L22 21 L44 25 L66 16 L88 19 L110 9 L132 12 L150 4" stroke="#10B981" stroke-width="2.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+
+      <div class="stat b">
+        <div class="stat-top">
+          <div class="stat-ico">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#3B82F6" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="4.5" width="18" height="17" rx="3"/><path d="M3 10h18M8 2.5v4M16 2.5v4"/>
+              <circle cx="8.5" cy="15" r="1.1" fill="#3B82F6" stroke="none"/><circle cx="12" cy="15" r="1.1" fill="#3B82F6" stroke="none"/>
+            </svg>
+          </div>
+          <div class="go"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#3B82F6" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></div>
+        </div>
+        <div class="stat-label">Ota-ona murojaatlari</div>
+        <div class="stat-num">2</div>
+        <div class="stat-sub">javob kutilmoqda</div>
+        <svg class="spark" width="100%" height="30" viewBox="0 0 150 30" preserveAspectRatio="none">
+          <path d="M0 18 L22 20 L44 14 L66 22 L88 13 L110 17 L132 11 L150 14" stroke="#3B82F6" stroke-width="2.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+
+      <div class="stat p">
+        <div class="stat-top">
+          <div class="stat-ico">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#8B5CF6" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M4 20V10M10 20V4M16 20v-7M22 20V7"/>
+            </svg>
+          </div>
+          <div class="go"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8B5CF6" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></div>
+        </div>
+        <div class="stat-label">Mavzu topshirish</div>
+        <div class="stat-num">241 / 287</div>
+        <div class="stat-sub">83.9% bajarildi</div>
+        <div class="bar"><i style="width:83.9%;background:linear-gradient(90deg,#A78BFA,#7C3AED)"></i></div>
+      </div>
+
+      <div class="stat o">
+        <div class="stat-top">
+          <div class="stat-ico">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M10.3 3.9 1.9 18a2 2 0 0 0 1.7 3h16.8a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/>
+              <path d="M12 9v4.5M12 17.5h.01"/>
+            </svg>
+          </div>
+          <div class="go"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></div>
+        </div>
+        <div class="stat-label">Oshxona</div>
+        <div class="stat-num">1</div>
+        <div class="stat-sub">mahsulot so'rovi</div>
+        <div class="bar"><i style="width:34%;background:linear-gradient(90deg,#FBBF24,#F59E0B)"></i></div>
+      </div>
+    </div>
+
+    <!-- TWO PANELS -->
+    <div class="grid2">
+      <div class="panel">
+        <div class="panel-head">
+          <div class="panel-title">
+            <div class="pi" style="background:var(--red-soft)">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#EF4444" stroke-width="2.2" stroke-linecap="round">
+                <circle cx="12" cy="12" r="9"/><path d="M12 7.5v5.5M12 16.5h.01"/>
+              </svg>
+            </div>
+            Bugungi muhim vaziyatlar
+          </div>
+          <div class="all">Barchasi
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h13M13 6l6 6-6 6"/></svg>
+          </div>
+        </div>
+
+        <div class="row">
+          <div class="dot" style="background:#EF4444"></div>
+          <div class="row-body">
+            <div class="row-t">Jasur Tursunov — Genetika</div>
+            <div class="row-s">Mavzu topshirish 43%,&nbsp; qayta nazorat kerak</div>
+          </div>
+          <div class="row-time">10:15</div>
+          <div class="tag red">MUAMMO</div>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#C3D0E0" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
+        </div>
+
+        <div class="row">
+          <div class="dot" style="background:#F59E0B"></div>
+          <div class="row-body">
+            <div class="row-t">10-B guruhida 7 nafar o'quvchi</div>
+            <div class="row-s">Natija 60% dan past</div>
+          </div>
+          <div class="row-time">09:42</div>
+          <div class="tag orange">NAZORAT</div>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#C3D0E0" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
+        </div>
+
+        <div class="row">
+          <div class="dot" style="background:#F59E0B"></div>
+          <div class="row-body">
+            <div class="row-t">Oshpaz mahsulot so'rovi</div>
+            <div class="row-s">Bugungi menyu uchun 4 kg go'sht yetishmayapti</div>
+          </div>
+          <div class="row-time">08:30</div>
+          <div class="tag yellow">MUHIM</div>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#C3D0E0" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
+        </div>
+
+        <div class="row">
+          <div class="dot" style="background:#10B981"></div>
+          <div class="row-body">
+            <div class="row-t">Charos — darsga kech qoldi</div>
+            <div class="row-s">Sabab: transport</div>
+          </div>
+          <div class="row-time">07:55</div>
+          <div class="tag green">YAXSHI</div>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#C3D0E0" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head">
+          <div class="panel-title">
+            <div class="pi" style="background:var(--green-soft)">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="2.2" stroke-linecap="round">
+                <path d="M4 20V11M10 20V5M16 20v-6M21 20V8"/>
+              </svg>
+            </div>
+            Ta'lim jarayoni
+          </div>
+          <div class="all">Barchasi
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h13M13 6l6 6-6 6"/></svg>
+          </div>
+        </div>
+
+        <div class="topic">
+          <div class="topic-top">
+            <span class="topic-lab">Bugungi mavzu</span>
+            <span class="chip-ok">TASDIQLANGAN</span>
+          </div>
+          <div class="topic-name">Biologiya · Genetika va irsiyat</div>
+        </div>
+
+        <div class="prog">
+          <div class="prog-top">
+            <div><div class="prog-name">Hurmat</div><div class="prog-sub">Mavzu topshirish</div></div>
+            <div class="prog-n">61 ta</div>
+          </div>
+          <div class="track"><i style="width:66%;background:linear-gradient(90deg,#60A5FA,#2563EB)"></i></div>
+        </div>
+
+        <div class="prog">
+          <div class="prog-top">
+            <div><div class="prog-name">Xushnud</div><div class="prog-sub">Mavzu topshirish</div></div>
+            <div class="prog-n">58 ta</div>
+          </div>
+          <div class="track"><i style="width:61%;background:linear-gradient(90deg,#60A5FA,#2563EB)"></i></div>
+        </div>
+
+        <div class="prog">
+          <div class="prog-top">
+            <div><div class="prog-name">Amirxon</div><div class="prog-sub">Mavzu topshirish</div></div>
+            <div class="prog-n">64 ta</div>
+          </div>
+          <div class="track"><i style="width:70%;background:linear-gradient(90deg,#60A5FA,#2563EB)"></i></div>
+        </div>
+
+        <div class="prog">
+          <div class="prog-top">
+            <div><div class="prog-name">Charos</div><div class="prog-sub">Mavzu topshirish</div></div>
+            <div class="prog-n">52 ta</div>
+          </div>
+          <div class="track"><i style="width:56%;background:linear-gradient(90deg,#A78BFA,#7C3AED)"></i></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="schedule">
+      <div class="sch-ico">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+          <path d="M12 21c0-7 3.5-11.5 9-13-1 7.5-4 12-9 13z" fill="#10B981"/>
+          <path d="M12 21C8.5 15 5.5 12.5 3 12c1.5 5 4.5 8 9 9z" fill="#34D399"/>
+        </svg>
+      </div>
+      <div class="sch-body">
+        <div class="sch-t">Bugungi dars jadvali</div>
+        <div class="sch-s">5 ta dars · 3 soat qoldi</div>
+      </div>
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#C3D0E0" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
+    </div>
+
+    <!-- BOTTOM NAV -->
+    <nav class="nav">
+      <div class="nav-i on">
+        <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 10.5 12 3l9 7.5V20a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 20z"/><path d="M9 21.5V13h6v8.5"/>
+        </svg>
+        <span>Bosh sahifa</span>
+      </div>
+      <div class="nav-i">
+        <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M16 20v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 20v-2a4 4 0 0 0-3-3.87"/>
+        </svg>
+        <span>O'quvchilar</span>
+      </div>
+      <div class="nav-i">
+        <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M2 4.5 9 3l6 2 7-1.5v16L15 21l-6-2-7 1.5z"/><path d="M9 3v16M15 5v16"/>
+        </svg>
+        <span>Mavzular</span>
+      </div>
+      <div class="nav-i">
+        <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M4 20V11M10 20V4M16 20v-6M21 20V8"/>
+        </svg>
+        <span>Natijalar</span>
+      </div>
+      <div class="nav-i">
+        <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <ellipse cx="12" cy="5.5" rx="8" ry="3"/><path d="M4 5.5v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6"/><path d="M4 11.5v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6"/>
+        </svg>
+        <span>Moliya</span>
+      </div>
+      <div class="nav-i">
+        <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M6 14a4.5 4.5 0 1 1 2-8.5 4 4 0 0 1 8 0A4.5 4.5 0 1 1 18 14z"/><path d="M6 14v5.5a1.5 1.5 0 0 0 1.5 1.5h9a1.5 1.5 0 0 0 1.5-1.5V14"/><path d="M6 17.5h12"/>
+        </svg>
+        <span>Oshxona</span>
+      </div>
+      <div class="nav-i">
+        <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round">
+          <circle cx="5" cy="12" r="1.3" fill="currentColor"/><circle cx="12" cy="12" r="1.3" fill="currentColor"/><circle cx="19" cy="12" r="1.3" fill="currentColor"/>
+        </svg>
+        <span>Boshqalar</span>
+      </div>
+    </nav>
+  </main>
+</div>
+</body>
+</html>
