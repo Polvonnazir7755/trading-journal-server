@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="UTF-8">
+<title>Grand Academy — Banner (tahrirlanadigan)</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Archivo:wght@400;600;700;800;900&family=Archivo+Black&display=swap');
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --green:#0B3B2E; --green-d:#082C22; --gold:#E0A81C; --cream:#F5F0E6;
+}
+body{background:#2a2a2a;display:grid;place-items:center;min-height:100vh;padding:30px;
+     font-family:'Archivo','Arial Narrow',Arial,sans-serif}
+
+/* 1080x1350 = Instagram 4:5 */
+.poster{
+  width:1080px;height:1350px;background:var(--green);position:relative;overflow:hidden;
+  box-shadow:0 30px 80px rgba(0,0,0,.6);
+}
+/* nozik grid chiziqlar */
+.grid-l{position:absolute;top:0;bottom:0;width:1px;background:rgba(245,240,230,.07)}
+
+/* ---------- TOP ---------- */
+.wordmark{position:absolute;top:34px;left:44px;line-height:.82}
+.wordmark div{
+  font-family:'Archivo Black','Archivo',sans-serif;font-weight:900;
+  font-size:142px;color:var(--cream);letter-spacing:-4px;
+  transform:scaleX(.93);transform-origin:left;
+}
+.dot-sq{display:inline-block;width:38px;height:38px;background:var(--gold);margin-left:10px;
+        vertical-align:baseline}
+
+.vertical{
+  position:absolute;top:52px;right:38px;writing-mode:vertical-rl;
+  font-size:22px;font-weight:800;letter-spacing:7px;color:var(--gold);
+}
+
+.rule-gold{position:absolute;left:44px;top:578px;width:122px;height:7px;background:var(--gold)}
+.subline{
+  position:absolute;left:44px;top:600px;font-size:26px;font-weight:600;color:var(--cream);
+  letter-spacing:.2px;
+}
+.subline b{color:var(--gold);font-weight:700;margin:0 4px}
+
+/* ---------- SUBJECT LIST ---------- */
+.list{position:absolute;top:648px;left:0;right:0}
+.item{
+  display:grid;grid-template-columns:150px 1fr 118px;align-items:center;height:94px;
+  border-top:1px solid rgba(245,240,230,.13);
+}
+.item:last-child{border-bottom:1px solid rgba(245,240,230,.13)}
+.idx{
+  font-size:30px;font-weight:700;color:var(--gold);text-align:center;
+  font-variant-numeric:tabular-nums;letter-spacing:1px;
+}
+.nm{display:flex;align-items:center;gap:22px;padding-right:14px}
+.nm span{font-size:45px;font-weight:800;color:var(--cream);letter-spacing:-.8px;white-space:nowrap}
+.dots{flex:1;border-bottom:3px dotted rgba(245,240,230,.34);margin-bottom:8px;min-width:30px}
+.ic{display:grid;place-items:center}
+
+/* faol qator */
+.item.hot{background:var(--gold);border-top-color:var(--gold)}
+.item.hot .idx{color:var(--green)}
+.item.hot .nm span{color:var(--green)}
+.item.hot .dots{border-bottom-color:rgba(11,59,46,.45)}
+
+/* ---------- DIAGONAL + CREAM ---------- */
+.diag{
+  position:absolute;left:0;right:0;bottom:0;height:290px;background:var(--cream);
+  clip-path:polygon(0 42px,100% 0,100% 100%,0 100%);
+}
+.diag-gold{
+  position:absolute;left:0;right:0;bottom:252px;height:34px;background:var(--gold);
+  clip-path:polygon(0 12px,100% 0,100% 34px,0 34px);
+}
+
+.contacts{
+  position:absolute;left:44px;right:44px;bottom:158px;
+  display:grid;grid-template-columns:1fr 1fr 1fr;
+}
+.ct{padding:0 26px;border-left:1.5px solid rgba(11,59,46,.22)}
+.ct:first-child{padding-left:0;border-left:none}
+.ct-lab{font-size:17px;font-weight:800;letter-spacing:2.4px;color:#B8860B;margin-bottom:7px}
+.ct-num{font-size:33px;font-weight:800;color:var(--green);letter-spacing:-.6px;
+        font-variant-numeric:tabular-nums;white-space:nowrap}
+
+.badge{
+  position:absolute;left:44px;bottom:36px;width:96px;height:96px;border-radius:50%;
+  background:var(--gold);display:grid;place-items:center;
+}
+.qr-wrap{position:absolute;right:44px;bottom:30px;display:flex;gap:22px}
+.qr{width:108px;height:108px;border:3px solid var(--green);display:grid;place-items:center;
+    background:#fff}
+.qr img{width:100%;height:100%;object-fit:contain;display:block}
+.qr-cap{text-align:center;font-size:17px;font-weight:800;color:var(--green);margin-top:7px;
+        letter-spacing:1.6px}
+</style>
+</head>
+<body>
+<div class="poster">
+
+  <div class="grid-l" style="left:150px"></div>
+  <div class="grid-l" style="left:660px"></div>
+  <div class="grid-l" style="right:118px"></div>
+
+  <div class="wordmark">
+    <div>GRAND</div>
+    <div>ACADEMY<span class="dot-sq"></span></div>
+  </div>
+
+  <div class="vertical">ONLAYN VA OFFLAYN</div>
+
+  <div class="rule-gold"></div>
+  <div class="subline">Milliy sertifikat <b>/</b> Attestatsiya <b>/</b> Kirish imtihonlari</div>
+
+  <div class="list">
+    <div class="item">
+      <div class="idx">01</div>
+      <div class="nm"><span>Ona tili va adabiyot</span><i class="dots"></i></div>
+      <div class="ic">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#F5F0E6" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M2 5.5S5 4 8 4s4 1.6 4 1.6S13 4 16 4s6 1.5 6 1.5v13S19 17 16 17s-4 1.6-4 1.6S11 17 8 17s-6 1.5-6 1.5z"/>
+          <path d="M12 5.6v13"/>
+        </svg>
+      </div>
+    </div>
+
+    <div class="item">
+      <div class="idx">02</div>
+      <div class="nm"><span>Kimyo</span><i class="dots"></i></div>
+      <div class="ic">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#F5F0E6" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M9 2.5h6M10 2.5v6.8L4.6 18.6A2.4 2.4 0 0 0 6.7 22h10.6a2.4 2.4 0 0 0 2.1-3.4L14 9.3V2.5"/>
+          <path d="M7.4 15h9.2"/><circle cx="10.5" cy="18" r=".9" fill="#F5F0E6" stroke="none"/>
+          <circle cx="13.8" cy="19.4" r=".7" fill="#F5F0E6" stroke="none"/>
+        </svg>
+      </div>
+    </div>
+
+    <div class="item hot">
+      <div class="idx">03</div>
+      <div class="nm"><span>Biologiya</span><i class="dots"></i></div>
+      <div class="ic">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#0B3B2E" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M20.5 3.5c1 8-3 14.5-9.5 15.5C6 19.8 3 17 3 13 3 7.5 9.5 3.5 20.5 3.5z"/>
+          <path d="M3.5 20.5C7 15 12 10.5 18 7.5"/>
+        </svg>
+      </div>
+    </div>
+
+    <div class="item">
+      <div class="idx">04</div>
+      <div class="nm"><span>Rus tili</span><i class="dots"></i></div>
+      <div class="ic">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none">
+          <rect x="2.5" y="3.5" width="19" height="17" rx="2" stroke="#F5F0E6" stroke-width="1.6"/>
+          <text x="12" y="16.6" font-family="Archivo,Arial" font-size="12" font-weight="800"
+                fill="#F5F0E6" text-anchor="middle">Я</text>
+        </svg>
+      </div>
+    </div>
+
+    <div class="item">
+      <div class="idx">05</div>
+      <div class="nm"><span>Matematika</span><i class="dots"></i></div>
+      <div class="ic">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#F5F0E6" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3.5 6.5h17M8 6.5v11M16 6.5v9.2c0 1.2.8 1.8 1.8 1.8h1.2"/>
+        </svg>
+      </div>
+    </div>
+  </div>
+
+  <div class="diag-gold"></div>
+  <div class="diag"></div>
+
+  <div class="contacts">
+    <div class="ct">
+      <div class="ct-lab">ONA TILI</div>
+      <div class="ct-num">+998 91 997 87 92</div>
+    </div>
+    <div class="ct">
+      <div class="ct-lab">KIMYO</div>
+      <div class="ct-num">+998 97 513 66 34</div>
+    </div>
+    <div class="ct">
+      <div class="ct-lab">BIOLOGIYA</div>
+      <div class="ct-num">+998 94 111 16 13</div>
+    </div>
+  </div>
+
+  <div class="badge">
+    <svg width="58" height="58" viewBox="0 0 24 24" fill="none" stroke="#F5F0E6" stroke-width="1.5" stroke-linecap="round">
+      <path d="M12 21V9"/>
+      <path d="M12 12c-2.6-.4-4.4-2.2-4.8-4.8C9.8 7.6 11.6 9.4 12 12z"/>
+      <path d="M12 12c2.6-.4 4.4-2.2 4.8-4.8C14.2 7.6 12.4 9.4 12 12z"/>
+      <path d="M12 16.5c-2.2-.3-3.7-1.8-4-4 2.2.3 3.7 1.8 4 4z"/>
+      <path d="M12 16.5c2.2-.3 3.7-1.8 4-4-2.2.3-3.7 1.8-4 4z"/>
+      <path d="M8 21h8"/>
+    </svg>
+  </div>
+
+  <div class="qr-wrap">
+    <div>
+      <div class="qr"><!-- <img src="qr1.png"> --></div>
+      <div class="qr-cap">QR 1</div>
+    </div>
+    <div>
+      <div class="qr"><!-- <img src="qr2.png"> --></div>
+      <div class="qr-cap">QR 2</div>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>
